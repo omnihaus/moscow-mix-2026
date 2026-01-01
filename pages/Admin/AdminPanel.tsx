@@ -145,7 +145,7 @@ const AdminPanel = () => {
     setIsGeneratingFeatures(true);
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-001" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
       const prompt = `
             Analyze this product and generate 5 premium, benefit-driven feature bullet points (max 6 words each).
             Product: ${newProduct.name}
@@ -184,7 +184,7 @@ const AdminPanel = () => {
     setIsGeneratingDesc(true);
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-001" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
       const prompt = `
             Write a premium, short, and compelling product description (2-3 sentences) for:
             Product Name: ${newProduct.name}
@@ -470,7 +470,7 @@ const AdminPanel = () => {
 
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-001" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
       const productsContext = config.products.map(p => `${p.name} (ID: ${p.id})`).join(', ');
 
       const prompt = `
