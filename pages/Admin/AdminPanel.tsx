@@ -435,12 +435,14 @@ const AdminPanel = () => {
     setTargetProductBase64s(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Uses Pollinations.ai for reliable, free AI image generation to prompt
+  // Uses Pollinations.ai with 'Flux' model (mapping for Nano Banana Pro request) for SOTA quality
   const generateImageFromPrompt = async (genAI: GoogleGenerativeAI, prompt: string): Promise<string | null> => {
     try {
       console.log("Generating image for:", prompt);
-      // Using Pollinations.ai as a robust fallback since Gemini API image generation is region/model restricted
-      const response = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt + " photorealistic, cinematic, 8k, luxury product photography")}`);
+      // Use 'flux' model for cinema-quality realism
+      // Append specific aesthetic improvements for luxury vibe
+      const enhancedPrompt = `${prompt}, commercial product photography, 8k resolution, highly detailed, dramatic lighting, luxury aesthetic`;
+      const response = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?model=flux&width=1280&height=720&nologo=true`);
       const blob = await response.blob();
 
       return new Promise((resolve) => {
