@@ -510,8 +510,9 @@ const AdminPanel = () => {
              "slug": "seo-friendly-url",
              "tags": ["tag1", "tag2"],
              "metaDescription": "SEO meta description",
-             "coverImagePrompt": "A detailed prompt for the cover image",
-             "inlineImagePrompts": ["prompt for image 1", "prompt for image 2"]
+             "metaDescription": "SEO meta description",
+             "coverImagePrompt": "A highly descriptive, photorealistic prompt for the cover image that captures the essence of the headline.",
+             "inlineImagePrompts": ["Contextually relevant prompt for image 1 (must match the surrounding text)", "Contextually relevant prompt for image 2"]
            }
       `;
 
