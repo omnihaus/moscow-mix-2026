@@ -468,20 +468,14 @@ const AdminPanel = () => {
       return null;
     } catch (e) {
       console.error("Imagen generation error:", e);
-      // Fallback to Pollinations (Turbo) if Google fails (better text handling than Flux)
-      console.warn("Falling back to Pollinations (Turbo)...");
-      try {
-        // Turbo model handles text better than Flux and is a good backup
-        const fallbackRes = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?model=turbo&nologo=true`);
-        const blob = await fallbackRes.blob();
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-      } catch (err) {
-        return null;
-      }
+      // FAILURE STRATEGY: Do NOT silent fallback.
+      // If the user wants precise 'Nano Banana Pro' (Imagen 3), we must show them if it fails.
+      // Returning null here will cause the UI to simply not rendering the image, 
+      // or we can let the error bubble up if we want to alert. 
+      // For now, let's ALERT the specific error so the user knows why "Pro" didn't work.
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      alert(`Google Imagen 3.0 Failed: ${msg}`);
+      return null;
     }
   };
 
