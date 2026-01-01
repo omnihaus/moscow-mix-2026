@@ -577,7 +577,9 @@ const AdminPanel = () => {
 
     } catch (error) {
       console.error(error);
-      alert("AI Generation failed. Check API Key or Console.");
+      console.error(error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      alert(`AI Generation failed: ${errorMessage}`);
     } finally {
       setIsGenerating(false);
       setGenerationStatus('');
