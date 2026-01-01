@@ -73,7 +73,9 @@ const AdminPanel = () => {
       return url;
     } catch (error) {
       console.error("Firebase Upload failed", error);
-      alert("Upload failed. Check console.");
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      // We don't alert here anymore to allow the fallback to work silently without nagging
+      console.warn("Upload failed:", msg);
       return "";
     }
   };
@@ -497,8 +499,11 @@ const AdminPanel = () => {
         2. FORMAT:
            - Use semantic HTML (<h2>, 3-4 sentences per paragraph, <h3> for subsections).
            - Do NOT use markdown. Return raw HTML.
-        3. OUTPUT:
-           - Return ONLY a valid JSON object.
+         3. IMAGES:
+            - You MUST insert exactly 2 image placeholders within the HTML content at logical section breaks to break up the text.
+            - Use this EXACT format (do not use markdown images): <div class="image-placeholder" data-prompt="Detailed visual description of the image"></div>
+         4. OUTPUT:
+            - Return ONLY a valid JSON object.
            {
              "excerpt": "Engaging summary (150 chars)",
              "content": "Full HTML body...",
@@ -558,17 +563,25 @@ const AdminPanel = () => {
         const imgBase64 = await generateImageFromPrompt(genAI, imgPrompt);
 
         if (imgBase64) {
-          const firebaseUrl = await uploadBase64ToFirebase(imgBase64, 'blog-content');
-          if (firebaseUrl) {
-            const imgTag = `<div class="image-block"><img src="${firebaseUrl}" alt="${imgPrompt}" /><span class="caption">${imgPrompt.split('.')[0]}</span></div>`;
+          let imageUrl = await uploadBase64ToFirebase(imgBase64, 'blog-content');
+
+          // Fallback: If upload failed, use the direct Pollinations URL
+          if (!imageUrl) {
+            console.warn("Firebase upload failed. Using external URL fallback.");
+            imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imgPrompt + " photorealistic, cinematic, 8k, luxury product photography")}`;
+          }
+
+          if (imageUrl) {
+            const imgTag = `<div class="image-block"><img src="${imageUrl}" alt="${imgPrompt}" /><span class="caption">${imgPrompt.split('.')[0]}</span></div>`;
             finalContent = finalContent.replace(fullMatch, imgTag);
           } else {
-            console.warn("Upload failed for inline image, removing placeholder");
             finalContent = finalContent.replace(fullMatch, '');
           }
         } else {
-          console.warn("Generation failed for inline image, removing placeholder");
-          finalContent = finalContent.replace(fullMatch, '');
+          // Even if generation blob failed, try the direct URL as a last resort
+          const fallbackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imgPrompt + " photorealistic, cinematic, 8k, luxury product photography")}`;
+          const imgTag = `<div class="image-block"><img src="${fallbackUrl}" alt="${imgPrompt}" /><span class="caption">${imgPrompt.split('.')[0]}</span></div>`;
+          finalContent = finalContent.replace(fullMatch, imgTag);
         }
       }
 
