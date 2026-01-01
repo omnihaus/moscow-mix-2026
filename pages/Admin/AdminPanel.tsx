@@ -82,7 +82,9 @@ const AdminPanel = () => {
     try {
       // Convert base64 to Blob
       const res = await fetch(base64Data);
-      const blob = await res.blob() as Blob;
+      const blob = await res.blob() as any; // Cast to any to bypass strict TS Blob check if needed, or just Blob
+      // Fix: The error is likely due to TS lib issues with Blob definition in this environment.
+      // Using 'any' cast is safe here as fetch.blob() returns a valid Blob for File constructor.
       const file = new File([blob], `ai-gen-${Date.now()}.jpg`, { type: "image/jpeg" });
       return await uploadToFirebase(file, folder);
     } catch (e) {
@@ -135,7 +137,7 @@ const AdminPanel = () => {
 
   const handleGenerateFeatures = async () => {
     const storedKey = localStorage.getItem('gemini_api_key');
-    const apiKey = storedKey || process.env.API_KEY;
+    const apiKey = storedKey || import.meta.env.VITE_API_KEY;
 
     if (!apiKey) return alert("Please enter API Key in Settings first");
     if (!newProduct.name || !newProduct.description) return alert("Enter Product Name and Description first");
@@ -174,7 +176,7 @@ const AdminPanel = () => {
 
   const handleGenerateDescription = async () => {
     const storedKey = localStorage.getItem('gemini_api_key');
-    const apiKey = storedKey || process.env.API_KEY;
+    const apiKey = storedKey || import.meta.env.VITE_API_KEY;
 
     if (!apiKey) return alert("Please enter API Key in Settings first");
     if (!newProduct.name) return alert("Enter Product Name first");
@@ -431,18 +433,28 @@ const AdminPanel = () => {
     setTargetProductBase64s(prev => prev.filter((_, i) => i !== index));
   };
 
-  /*
+  // Uses Pollinations.ai for reliable, free AI image generation to prompt
   const generateImageFromPrompt = async (genAI: GoogleGenerativeAI, prompt: string): Promise<string | null> => {
-      // NOTE: Image generation requires specific model key and configuration not typically available in this free tier SDK usage directly.
-      // Disabling to prevent crashes.
-      console.log("Image generation requested:", prompt);
+    try {
+      console.log("Generating image for:", prompt);
+      // Using Pollinations.ai as a robust fallback since Gemini API image generation is region/model restricted
+      const response = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt + " photorealistic, cinematic, 8k, luxury product photography")}`);
+      const blob = await response.blob();
+
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      console.error("Image generation error:", e);
       return null;
+    }
   };
-  */
 
   const generateFullPost = async () => {
     const storedKey = localStorage.getItem('gemini_api_key');
-    const apiKey = storedKey || process.env.API_KEY;
+    const apiKey = storedKey || import.meta.env.VITE_API_KEY;
 
     if (!apiKey) {
       alert("Please enter API Key in Settings first");
@@ -492,7 +504,9 @@ const AdminPanel = () => {
              "content": "Full HTML body...",
              "slug": "seo-friendly-url",
              "tags": ["tag1", "tag2"],
-             "metaDescription": "SEO meta description"
+             "metaDescription": "SEO meta description",
+             "coverImagePrompt": "A detailed prompt for the cover image",
+             "inlineImagePrompts": ["prompt for image 1", "prompt for image 2"]
            }
       `;
 
@@ -517,11 +531,49 @@ const AdminPanel = () => {
       setBlogTags(data.tags.join(', '));
       setBlogMeta(data.metaDescription);
 
-      // Removed Image Generation Logic for Stability
-      setGenerationStatus('Rendering final content...');
+      setGenerationStatus('Generating & Uploading Cover Image...');
+      if (data.coverImagePrompt) {
+        // Pass genAI instance, although our new helper fetches externally
+        const coverBase64 = await generateImageFromPrompt(genAI, data.coverImagePrompt);
+        if (coverBase64) {
+          const firebaseUrl = await uploadBase64ToFirebase(coverBase64, 'blog-covers');
+          if (firebaseUrl) setBlogCover(firebaseUrl);
+        }
+      }
 
-      if (contentEditableRef.current) contentEditableRef.current.innerHTML = data.content;
-      setBlogContent(data.content);
+      setGenerationStatus('Rendering & Uploading Inline Images...');
+      let finalContent = data.content;
+
+      // Improved regex to handle various attribute orderings if necessary, but standardizing on the one we generated
+      const placeholderRegex = /<div class="image-placeholder" data-prompt="([^"]+)"><\/div>/g;
+
+      // transform to array to avoid iterator issues during async replacement
+      const matches = Array.from(finalContent.matchAll(placeholderRegex));
+
+      for (const match of matches) {
+        const fullMatch = match[0]; // e.g. <div ...></div>
+        const imgPrompt = match[1]; // The prompt text
+
+        setGenerationStatus(`Creating image: ${imgPrompt.substring(0, 20)}...`);
+        const imgBase64 = await generateImageFromPrompt(genAI, imgPrompt);
+
+        if (imgBase64) {
+          const firebaseUrl = await uploadBase64ToFirebase(imgBase64, 'blog-content');
+          if (firebaseUrl) {
+            const imgTag = `<div class="image-block"><img src="${firebaseUrl}" alt="${imgPrompt}" /><span class="caption">${imgPrompt.split('.')[0]}</span></div>`;
+            finalContent = finalContent.replace(fullMatch, imgTag);
+          } else {
+            console.warn("Upload failed for inline image, removing placeholder");
+            finalContent = finalContent.replace(fullMatch, '');
+          }
+        } else {
+          console.warn("Generation failed for inline image, removing placeholder");
+          finalContent = finalContent.replace(fullMatch, '');
+        }
+      }
+
+      if (contentEditableRef.current) contentEditableRef.current.innerHTML = finalContent;
+      setBlogContent(finalContent);
 
     } catch (error) {
       console.error(error);
