@@ -435,24 +435,53 @@ const AdminPanel = () => {
     setTargetProductBase64s(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Uses Pollinations.ai with 'Flux' model (mapping for Nano Banana Pro request) for SOTA quality
+  // Uses Google's native Imagen 3 model (requested as 'Nano Banana Pro')
   const generateImageFromPrompt = async (genAI: GoogleGenerativeAI, prompt: string): Promise<string | null> => {
     try {
-      console.log("Generating image for:", prompt);
-      // Use 'flux' model for cinema-quality realism
-      // Append specific aesthetic improvements for luxury vibe
-      const enhancedPrompt = `${prompt}, commercial product photography, 8k resolution, highly detailed, dramatic lighting, luxury aesthetic`;
-      const response = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?model=flux&width=1280&height=720&nologo=true`);
-      const blob = await response.blob();
+      console.log("Generating image with Imagen 3.0 for:", prompt);
+      const apiKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_API_KEY;
 
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
+      // Direct REST call to Imagen 3.0 endpoint
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          instances: [{ prompt: prompt + ", photorealistic, 8k, no text, no watermark" }],
+          parameters: { sampleCount: 1 }
+        })
       });
-    } catch (e) {
-      console.error("Image generation error:", e);
+
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Imagen API Error: ${err}`);
+      }
+
+      const data = await response.json();
+      // Imagen returns base64 directly in predictions[0].bytesBase64Encoded
+      const base64Image = data.predictions?.[0]?.bytesBase64Encoded;
+
+      if (base64Image) {
+        return `data:image/jpeg;base64,${base64Image}`;
+      }
       return null;
+    } catch (e) {
+      console.error("Imagen generation error:", e);
+      // Fallback to Pollinations (Turbo) if Google fails (better text handling than Flux)
+      console.warn("Falling back to Pollinations (Turbo)...");
+      try {
+        // Turbo model handles text better than Flux and is a good backup
+        const fallbackRes = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?model=turbo&nologo=true`);
+        const blob = await fallbackRes.blob();
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+      } catch (err) {
+        return null;
+      }
     }
   };
 
