@@ -11,7 +11,7 @@ import {
   BookOpen, LogOut, Plus, Trash2, Edit2, Upload,
   Sparkles, Save, Bold, Italic, Quote, Link as LinkIcon,
   Settings, ExternalLink, X, Heading1, Heading2, Eraser,
-  ArrowUp, ArrowDown, Check, X as XIcon, List, FileText, Video
+  ArrowUp, ArrowDown, Check, X as XIcon, List, FileText, Video, Eye, EyeOff
 } from 'lucide-react';
 
 const AdminPanel = () => {
@@ -20,6 +20,7 @@ const AdminPanel = () => {
   const [passwordInput, setPasswordInput] = useState('');
   const [activeTab, setActiveTab] = useState<'hero' | 'products' | 'journal' | 'story' | 'assets' | 'settings'>('hero');
   const [apiKeyInput, setApiKeyInput] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
 
   // Password Change State
   const [isChangingPass, setIsChangingPass] = useState(false);
@@ -467,28 +468,12 @@ const AdminPanel = () => {
       }
       return null;
     } catch (e) {
-      console.warn("Primary Nano Banana Model (Imagen 3) unreachable:", e);
-
-      // AUTO-ROUTING: The user's key is getting 404s from Google's Beta endpoint.
-      // We MUST deliver an image. We switch to the "Nano Banana Compatible" engine (Flux).
-      // CRITICAL: We apply strict cleaning to match the user's "Pro" expectation (No Gibberish).
-      try {
-        console.log("Rerouting to Nano Banana Pro (Flux Core)...");
-        // We explicitly strip text requests and enforce 'clean' product photography
-        const cleanPrompt = `${prompt}, commercial product photography, 8k, hyperrealistic, studio lighting. (NO TEXT, NO WRITING, NO LOGOS, NO WATERMARKS, CLEAR BACKGROUND)`;
-
-        // Using 'flux' for max resolution, random seed for variety
-        const fallbackRes = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?model=flux&width=1280&height=720&nologo=true&seed=${Math.floor(Math.random() * 10000)}`);
-        const blob = await fallbackRes.blob();
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-      } catch (err) {
-        console.error("Pro Backup generation failed:", err);
-        return null;
-      }
+      console.error("Nano Banana Pro (Imagen 3) API Error:", e);
+      // STRICT FAILURE: User rejected all backups.
+      // We will expose the exact error from Google Cloud.
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      alert(`Google Imagen 3.0 (Nano Banana Pro) Failed: ${msg}`);
+      return null;
     }
   };
 
@@ -1138,7 +1123,26 @@ const AdminPanel = () => {
               </div>
               <div className="bg-stone-900 p-8 border border-stone-800 rounded-lg space-y-6">
                 <h3 className="text-white font-serif text-xl">API Configuration</h3>
-                <div className="space-y-2"><label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Gemini API Key</label><input type="password" className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none font-mono text-sm" value={apiKeyInput} onChange={(e) => setApiKeyInput(e.target.value)} placeholder="AIza..." /><p className="text-xs text-stone-600">Required for Journal AI generation features.</p></div>
+                <div className="space-y-2">
+                  <label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Gemini API Key</label>
+                  <div className="relative">
+                    <input
+                      type={showApiKey ? "text" : "password"}
+                      className="w-full bg-stone-950 border border-stone-800 p-3 pr-10 text-white focus:border-copper-500 outline-none font-mono text-sm"
+                      value={apiKeyInput}
+                      onChange={(e) => setApiKeyInput(e.target.value)}
+                      placeholder="AIza..."
+                    />
+                    <button
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-500 hover:text-white"
+                      type="button"
+                    >
+                      {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-stone-600">Required for Journal AI generation features.</p>
+                </div>
                 <button onClick={handleSaveApiKey} className="w-full bg-copper-900/30 text-copper-400 hover:bg-copper-900/50 py-3 px-4 rounded text-sm font-bold border border-copper-900">Save API Key</button>
               </div>
             </div>
