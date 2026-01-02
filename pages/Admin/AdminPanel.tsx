@@ -32,6 +32,9 @@ const AdminPanel = () => {
   const [heroHead, setHeroHead] = useState(config.heroHeadline);
   const [heroSub, setHeroSub] = useState(config.heroSubheadline);
 
+  // AI Configuration
+  const [imageGenModel, setImageGenModel] = useState<'imagen-3' | 'flux' | 'turbo'>('imagen-3');
+
   // Refs
   const contentEditableRef = useRef<HTMLDivElement>(null);
   const inlineImageInputRef = useRef<HTMLInputElement>(null);
@@ -443,11 +446,24 @@ const AdminPanel = () => {
   };
 
   // Uses Google's native Imagen 3 model (requested as 'Nano Banana Pro')
-  const generateImageFromPrompt = async (genAI: GoogleGenerativeAI, prompt: string): Promise<string | null> => {
+  const generateImageFromPrompt = async (genAI: GoogleGenerativeAI, prompt: string, modelType: string = 'imagen-3'): Promise<string | null> => {
     try {
-      console.log("Generating image with Imagen 3.0 for:", prompt);
+      console.log(`Generating image with ${modelType} for:`, prompt);
       const apiKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_API_KEY;
 
+      // OPTION 1: FLUX (via Pollinations)
+      if (modelType === 'flux') {
+        const enhancedPrompt = encodeURIComponent(prompt + " photorealistic, cinematic lighting, 8k uhd, highly detailed, professional photography");
+        return `https://pollinations.ai/p/${enhancedPrompt}?width=1024&height=1024&seed=${Math.floor(Math.random() * 1000)}&model=flux`;
+      }
+
+      // OPTION 2: TURBO (via Pollinations)
+      if (modelType === 'turbo') {
+        const enhancedPrompt = encodeURIComponent(prompt);
+        return `https://pollinations.ai/p/${enhancedPrompt}?width=1024&height=1024&seed=${Math.floor(Math.random() * 1000)}&model=turbo`;
+      }
+
+      // OPTION 3: GOOGLE IMAGEN 3.0 (Default)
       // STEP 1: Discovery - Find the exact Model ID allowed for this key
       console.log("Auto-Discovering correct Imagen model ID...");
       const listResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
@@ -485,17 +501,9 @@ const AdminPanel = () => {
       }
       return null;
     } catch (e) {
-      console.error("Nano Banana Pro (Imagen 3) API Error:", e);
-      // STRICT FAILURE: User requested NO FALLBACKS.
+      console.error("Image Gen Error:", e);
       const msg = e instanceof Error ? e.message : "Unknown error";
-
-      // HELPFUL HINT: Check for common 404/403 causes
-      let hint = "";
-      if (msg.includes("404") || msg.includes("NOT_FOUND")) {
-        hint = "\n\nHINT: Google says this model doesn't exist for your key. Please go to Google Cloud Console -> APIs & Services -> Enabled APIs and ensure 'Generative Language API' AND 'Vertex AI API' are enabled.";
-      }
-
-      alert(`Google Imagen 3.0 Failed: ${msg}${hint}`);
+      alert(`Image Generation Failed (${modelType}): ${msg}`);
       return null;
     }
   };
@@ -583,15 +591,21 @@ const AdminPanel = () => {
       setBlogTags(data.tags.join(', '));
       setBlogMeta(data.metaDescription);
 
+      // 2. Generate Cover Image
       setGenerationStatus('Generating & Uploading Cover Image...');
-      if (data.coverImagePrompt) {
-        // Pass genAI instance, although our new helper fetches externally
-        const coverBase64 = await generateImageFromPrompt(genAI, data.coverImagePrompt);
-        if (coverBase64) {
-          const firebaseUrl = await uploadBase64ToFirebase(coverBase64, 'blog-covers');
-          if (firebaseUrl) setBlogCover(firebaseUrl);
+      const coverPrompt = data.coverImagePrompt || `A professional, magazine-quality photo for a blog post about: ${blogTitle}. ${blogContentDirection || ''}. Photorealistic, 8k.`;
+      const coverUrlRaw = await generateImageFromPrompt(genAI, coverPrompt, imageGenModel);
+
+      let coverUrl = "";
+      if (coverUrlRaw) {
+        if (coverUrlRaw.startsWith('data:')) {
+          coverUrl = await uploadBase64ToFirebase(coverUrlRaw, 'blog-covers');
+        } else {
+          // It's a Pollinations URL
+          coverUrl = coverUrlRaw;
         }
       }
+      if (coverUrl) setBlogCover(coverUrl);
 
       setGenerationStatus('Rendering & Uploading Inline Images...');
       let finalContent = data.content;
