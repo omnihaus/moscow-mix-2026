@@ -20,6 +20,8 @@ export interface Product {
   amazonUrl?: string;
 }
 
+export type PostStatus = 'draft' | 'scheduled' | 'published';
+
 export interface BlogPost {
   id: string;
   title: string;
@@ -32,6 +34,10 @@ export interface BlogPost {
   slug?: string;
   tags?: string[];
   metaDescription?: string;
+  // Scheduling fields
+  status?: PostStatus;
+  scheduledDate?: string; // ISO date string for scheduled publish time
+  publishedAt?: string; // ISO date string when actually published
 }
 
 export interface Testimonial {

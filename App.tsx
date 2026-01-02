@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -25,7 +25,7 @@ function ScrollToTop() {
 export default function App() {
   return (
     <SiteConfigProvider>
-      <HashRouter>
+      <BrowserRouter>
         <ScrollToTop />
         <div className="font-sans antialiased text-stone-100 bg-stone-950 selection:bg-copper-500 selection:text-white">
           <Routes>
@@ -48,7 +48,7 @@ export default function App() {
             } />
           </Routes>
         </div>
-      </HashRouter>
+      </BrowserRouter>
     </SiteConfigProvider>
   );
 }

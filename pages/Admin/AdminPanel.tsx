@@ -11,7 +11,8 @@ import {
   BookOpen, LogOut, Plus, Trash2, Edit2, Upload,
   Sparkles, Save, Bold, Italic, Quote, Link as LinkIcon,
   Settings, ExternalLink, X, Heading1, Heading2, Eraser,
-  ArrowUp, ArrowDown, Check, X as XIcon, List, FileText, Video, Eye, EyeOff
+  ArrowUp, ArrowDown, Check, X as XIcon, List, FileText, Video, Eye, EyeOff,
+  Calendar, Clock
 } from 'lucide-react';
 
 const AdminPanel = () => {
@@ -323,6 +324,10 @@ const AdminPanel = () => {
 
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
 
+  // Scheduling state
+  const [postStatus, setPostStatus] = useState<'draft' | 'scheduled' | 'published'>('published');
+  const [scheduledDateTime, setScheduledDateTime] = useState('');
+
   const execCmd = (command: string, value: string | undefined = undefined) => {
     document.execCommand(command, false, value);
     contentEditableRef.current?.focus();
@@ -352,7 +357,20 @@ const AdminPanel = () => {
   const handleSavePost = () => {
     if (!blogTitle) return alert("Title required");
 
+    // Validate scheduled date if scheduling
+    if (postStatus === 'scheduled' && !scheduledDateTime) {
+      return alert("Please select a date and time for scheduling");
+    }
+
     const id = editingPostId || blogTitle.toLowerCase().replace(/[^a-z0-9]/g, '-');
+
+    // Determine the display date based on status
+    let displayDate: string;
+    if (postStatus === 'scheduled' && scheduledDateTime) {
+      displayDate = new Date(scheduledDateTime).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    } else {
+      displayDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    }
 
     const newPost: BlogPost = {
       id: id,
@@ -360,20 +378,30 @@ const AdminPanel = () => {
       excerpt: blogExcerpt || "Read more about this topic in our latest journal entry.",
       content: contentEditableRef.current?.innerHTML || blogContent,
       coverImage: blogCover || config.assets.heroVideoPoster,
-      date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+      date: displayDate,
       author: blogAuthor || "Michael B.",
       readTime: "5 min read",
       slug: blogSlug || blogTitle.toLowerCase().replace(/[^a-z0-9]/g, '-'),
       tags: blogTags.split(',').map(t => t.trim()),
-      metaDescription: blogMeta
+      metaDescription: blogMeta,
+      // Scheduling fields
+      status: postStatus,
+      scheduledDate: postStatus === 'scheduled' ? scheduledDateTime : undefined,
+      publishedAt: postStatus === 'published' ? new Date().toISOString() : undefined
+    };
+
+    const statusMessages: Record<typeof postStatus, string> = {
+      'draft': 'Draft Saved',
+      'scheduled': `Post Scheduled for ${displayDate}`,
+      'published': 'Post Published Successfully'
     };
 
     if (editingPostId) {
       updateBlogPost(newPost);
-      alert("Post Updated Successfully");
+      alert(statusMessages[postStatus].replace('Published', 'Updated'));
     } else {
       addBlogPost(newPost);
-      alert("Post Published Successfully");
+      alert(statusMessages[postStatus]);
     }
 
     resetJournalForm();
@@ -390,6 +418,10 @@ const AdminPanel = () => {
     setBlogTags(post.tags?.join(', ') || '');
     setBlogMeta(post.metaDescription || '');
     setBlogAuthor(post.author);
+
+    // Load scheduling state
+    setPostStatus(post.status || 'published');
+    setScheduledDateTime(post.scheduledDate || '');
 
     setTargetProduct('');
     setTargetProductBase64s([]);
@@ -420,6 +452,9 @@ const AdminPanel = () => {
     setCoverImgDir('');
     setInlineImg1Dir('');
     setInlineImg2Dir('');
+    // Reset scheduling state
+    setPostStatus('published');
+    setScheduledDateTime('');
   };
 
   const handleDeletePost = (e: React.MouseEvent, id: string) => {
@@ -659,7 +694,7 @@ const AdminPanel = () => {
         REQUIREMENTS:
         1. LINKS: 
            - Include EXACTLY 2 internal links to the product IDs provided above. 
-           - **CRITICAL**: Use valid HTML relative paths ONLY for HashRouter. Example: <a href="#/product/copper-mule-16oz" style="color: #3b82f6;">Product Name</a>. 
+           - **CRITICAL**: Use standard relative paths for internal links. Example: <a href="/product/copper-mule-16oz" style="color: #3b82f6;">Product Name</a>. 
            - Include 2-3 external links to HIGH-AUTHORITY relevant domains (e.g., Wikipedia for historical context, authoritative cocktail/culinary sites, scientific journals for material properties).
            - External links must open in new tab: <a href="https://example.com" target="_blank" rel="noopener noreferrer" style="color: #3b82f6;">Link Text</a>
         2. FORMAT:
@@ -1215,23 +1250,125 @@ const AdminPanel = () => {
                     ></div>
                   </div>
                 </div>
-                <button onClick={handleSavePost} className="bg-copper-600 hover:bg-copper-500 text-white px-8 py-4 uppercase tracking-widest text-sm font-bold w-full">{editingPostId ? 'Update Post' : 'Publish Post'}</button>
+
+                {/* Scheduling Section */}
+                <div className="border border-stone-800 p-4 rounded bg-stone-950/50 space-y-4">
+                  <h4 className="text-xs uppercase tracking-widest text-stone-500 font-bold flex items-center gap-2">
+                    <Calendar size={14} /> Post Scheduling
+                  </h4>
+                  <div className="flex flex-wrap gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="postStatus"
+                        value="draft"
+                        checked={postStatus === 'draft'}
+                        onChange={() => setPostStatus('draft')}
+                        className="accent-amber-500"
+                      />
+                      <span className="text-sm text-stone-300">Save as Draft</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="postStatus"
+                        value="scheduled"
+                        checked={postStatus === 'scheduled'}
+                        onChange={() => setPostStatus('scheduled')}
+                        className="accent-blue-500"
+                      />
+                      <span className="text-sm text-stone-300">Schedule</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="postStatus"
+                        value="published"
+                        checked={postStatus === 'published'}
+                        onChange={() => setPostStatus('published')}
+                        className="accent-green-500"
+                      />
+                      <span className="text-sm text-stone-300">Publish Now</span>
+                    </label>
+                  </div>
+
+                  {postStatus === 'scheduled' && (
+                    <div className="flex items-center gap-4 p-3 bg-blue-950/30 border border-blue-900/50 rounded">
+                      <Clock size={16} className="text-blue-400" />
+                      <div className="flex-1 space-y-1">
+                        <label className="text-[10px] uppercase tracking-widest text-blue-400 font-bold">Schedule Date & Time</label>
+                        <input
+                          type="datetime-local"
+                          value={scheduledDateTime}
+                          onChange={(e) => setScheduledDateTime(e.target.value)}
+                          min={new Date().toISOString().slice(0, 16)}
+                          className="w-full bg-stone-900 border border-stone-800 p-2 text-white focus:border-blue-500 outline-none text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={handleSavePost}
+                  className={`text-white px-8 py-4 uppercase tracking-widest text-sm font-bold w-full flex items-center justify-center gap-2 ${postStatus === 'draft'
+                    ? 'bg-amber-700 hover:bg-amber-600'
+                    : postStatus === 'scheduled'
+                      ? 'bg-blue-700 hover:bg-blue-600'
+                      : 'bg-copper-600 hover:bg-copper-500'
+                    }`}
+                >
+                  {postStatus === 'draft' && <><FileText size={16} /> {editingPostId ? 'Update Draft' : 'Save Draft'}</>}
+                  {postStatus === 'scheduled' && <><Calendar size={16} /> {editingPostId ? 'Update Schedule' : 'Schedule Post'}</>}
+                  {postStatus === 'published' && <><Check size={16} /> {editingPostId ? 'Update & Publish' : 'Publish Now'}</>}
+                </button>
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-stone-500 text-xs uppercase tracking-widest font-bold mb-4">Published Posts</h3>
-                {config.blogPosts.map(post => (
-                  <div key={post.id} className="bg-stone-900 p-4 border border-stone-800 flex items-center justify-between group">
-                    <div className="flex items-center gap-4">
-                      <img src={post.coverImage} className="w-16 h-10 object-cover" />
-                      <span className="text-white font-serif">{post.title}</span>
+                <h3 className="text-stone-500 text-xs uppercase tracking-widest font-bold mb-4">All Posts</h3>
+                {config.blogPosts.length === 0 && (
+                  <p className="text-stone-600 text-sm italic">No posts yet. Create your first post above.</p>
+                )}
+                {config.blogPosts.map(post => {
+                  const status = post.status || 'published';
+                  const isScheduledInFuture = status === 'scheduled' && post.scheduledDate && new Date(post.scheduledDate) > new Date();
+
+                  return (
+                    <div key={post.id} className={`bg-stone-900 p-4 border rounded flex items-center justify-between group ${status === 'draft' ? 'border-amber-900/50' :
+                      status === 'scheduled' ? 'border-blue-900/50' : 'border-stone-800'
+                      }`}>
+                      <div className="flex items-center gap-4">
+                        <img src={post.coverImage} className="w-16 h-10 object-cover rounded" />
+                        <div>
+                          <span className="text-white font-serif block">{post.title}</span>
+                          <div className="flex items-center gap-2 mt-1">
+                            {status === 'draft' && (
+                              <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 bg-amber-900/30 text-amber-400 rounded">Draft</span>
+                            )}
+                            {status === 'scheduled' && (
+                              <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 bg-blue-900/30 text-blue-400 rounded flex items-center gap-1">
+                                <Clock size={10} /> {isScheduledInFuture ? 'Scheduled' : 'Pending Publish'}
+                              </span>
+                            )}
+                            {status === 'published' && (
+                              <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 bg-green-900/30 text-green-400 rounded">Published</span>
+                            )}
+                            <span className="text-[10px] text-stone-500">{post.date}</span>
+                            {status === 'scheduled' && post.scheduledDate && (
+                              <span className="text-[10px] text-blue-400">
+                                → {new Date(post.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleEditPost(post)} className="p-2 text-stone-500 hover:text-white" title="Edit Post"><Edit2 size={16} /></button>
+                        <button onClick={(e) => handleDeletePost(e, post.id)} type="button" className="p-2 text-stone-500 hover:bg-red-900/30 hover:text-red-500 transition-colors rounded relative z-50 cursor-pointer" title="Delete Post"><Trash2 size={16} /></button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => handleEditPost(post)} className="p-2 text-stone-500 hover:text-white" title="Edit Post"><Edit2 size={16} /></button>
-                      <button onClick={(e) => handleDeletePost(e, post.id)} type="button" className="p-2 text-stone-500 hover:bg-red-900/30 hover:text-red-500 transition-colors rounded relative z-50 cursor-pointer" title="Delete Post"><Trash2 size={16} /></button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1354,8 +1491,8 @@ const AdminPanel = () => {
             </div>
           )}
         </main>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 };
 
