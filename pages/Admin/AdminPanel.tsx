@@ -33,7 +33,8 @@ const AdminPanel = () => {
   const [heroSub, setHeroSub] = useState(config.heroSubheadline);
 
   // AI Configuration
-  const [imageGenModel, setImageGenModel] = useState<'imagen-3' | 'flux' | 'turbo'>('imagen-3');
+  const [imageGenModel, setImageGenModel] = useState<'imagen-3' | 'flux' | 'turbo' | 'custom'>('imagen-3');
+  const [customModelId, setCustomModelId] = useState('');
 
   // Refs
   const contentEditableRef = useRef<HTMLDivElement>(null);
@@ -43,6 +44,24 @@ const AdminPanel = () => {
     const savedKey = localStorage.getItem('gemini_api_key');
     if (savedKey) setApiKeyInput(savedKey);
   }, []);
+
+  const checkGoogleModels = async () => {
+    try {
+      const apiKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_API_KEY;
+      if (!apiKey) return alert("Please save API Key first.");
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      const data = await response.json();
+
+      if (!data.models) return alert("No models found directly. Check permissions.");
+
+      // Filter for image generation models if possible, or key ones
+      const names = data.models.map((m: any) => m.name.replace('models/', '')).join('\n');
+      alert(`Available Models for your Key:\n\n${names}`);
+    } catch (e) {
+      alert("Failed to fetch models: " + e);
+    }
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -463,7 +482,31 @@ const AdminPanel = () => {
         return `https://pollinations.ai/p/${enhancedPrompt}?width=1024&height=1024&seed=${Math.floor(Math.random() * 1000)}&model=turbo`;
       }
 
-      // OPTION 3: GOOGLE IMAGEN 3.0 (Default)
+      // OPTION 3: CUSTOM MODEL
+      if (modelType === 'custom') {
+        if (!customModelId) throw new Error("Please enter a Custom Model ID");
+        console.log("Using Custom Model:", customModelId);
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${customModelId}:predict?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            instances: [{ prompt: prompt + ", photorealistic, 8k, no text, no watermark" }],
+            parameters: { sampleCount: 1 }
+          })
+        });
+
+        if (!response.ok) {
+          const err = await response.text();
+          throw new Error(err);
+        }
+        const data = await response.json();
+        const base64Image = data.predictions?.[0]?.bytesBase64Encoded;
+        if (base64Image) return `data:image/jpeg;base64,${base64Image}`;
+        return null;
+      }
+
+      // OPTION 4: GOOGLE IMAGEN 3.0 (Default)
       // STEP 1: Discovery - Find the exact Model ID allowed for this key
       console.log("Auto-Discovering correct Imagen model ID...");
       const listResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
@@ -961,13 +1004,28 @@ const AdminPanel = () => {
                     <select
                       value={imageGenModel}
                       onChange={(e) => setImageGenModel(e.target.value as any)}
-                      className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none h-20"
+                      className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none"
                     >
                       <option value="imagen-3">Google Imagen 3.0 (Pro Quality)</option>
                       <option value="flux">Flux (Text Friendly)</option>
                       <option value="turbo">Turbo (Fastest)</option>
+                      <option value="custom">Custom Model ID...</option>
                     </select>
-                    <p className="text-[10px] text-stone-600 mt-1">Select 'Flux' if text looks bad.</p>
+
+                    {imageGenModel === 'custom' && (
+                      <input
+                        type="text"
+                        placeholder="e.g. nano-banana-pro-001"
+                        className="w-full bg-stone-900 border border-stone-800 p-2 text-copper-400 text-xs mt-2 focus:border-copper-500 outline-none font-mono"
+                        value={customModelId}
+                        onChange={(e) => setCustomModelId(e.target.value)}
+                      />
+                    )}
+
+                    <div className="flex justify-between items-center mt-1">
+                      <p className="text-[10px] text-stone-600">Select 'Flux' if text looks bad.</p>
+                      <button onClick={checkGoogleModels} className="text-[10px] text-copper-500 hover:text-copper-400 underline cursor-pointer">Check Available Models</button>
+                    </div>
                   </div>
                 </div>
 
