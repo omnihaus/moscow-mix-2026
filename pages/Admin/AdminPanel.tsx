@@ -319,6 +319,7 @@ const AdminPanel = () => {
   const [coverImgDir, setCoverImgDir] = useState('');
   const [inlineImg1Dir, setInlineImg1Dir] = useState('');
   const [inlineImg2Dir, setInlineImg2Dir] = useState('');
+  const [productVisualDesc, setProductVisualDesc] = useState('');
 
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
 
@@ -668,11 +669,17 @@ const AdminPanel = () => {
             - You MUST insert exactly 2 image placeholders within the HTML content at logical section breaks to break up the text.
             - Use this EXACT format (do not use markdown images): <div class="image-placeholder" data-prompt="Detailed visual description of the image"></div>
             - **CRITICAL IMAGE PROMPT RULES**:
+              ${productVisualDesc ? `
+              **ADMIN HAS PROVIDED EXACT PRODUCT DESCRIPTION - USE THIS VERBATIM IN ALL IMAGE PROMPTS:**
+              "${productVisualDesc}"
+              
+              Every image prompt MUST start with or prominently include this exact description. Do NOT deviate from it. Do NOT add brass handles if it says copper. Do NOT change shapes or colors.
+              ` : `
+              Analyze the product images and create accurate prompts. The handle style is critical - match it exactly.
+              `}
               ${coverImgDir ? `* Cover Image: Use this exact direction: "${coverImgDir}"` : '* Cover Image: Must feature the target product prominently.'}
               ${inlineImg1Dir ? `* Inline Image 1: Use this exact direction: "${inlineImg1Dir}"` : '* Inline Image 1: Must be contextually relevant to the surrounding paragraph content.'}
               ${inlineImg2Dir ? `* Inline Image 2: Use this exact direction: "${inlineImg2Dir}"` : '* Inline Image 2: Must be contextually relevant to the surrounding paragraph content.'}
-              
-              **MANDATORY FOR ALL IMAGE PROMPTS**: Every image prompt MUST include the full PRODUCT DESCRIPTION STRING you created. The handle style is especially critical - if the product has a curved copper handle, say "curved flowing copper handle same color as body". If it has an angular brass handle, say "angular brass handle". BE EXACT.
               
          4. OUTPUT:
             - Return ONLY a valid JSON object.
@@ -1123,6 +1130,18 @@ const AdminPanel = () => {
                       <input type="text" placeholder="e.g. Fireplace setting" className="w-full bg-stone-900 border border-stone-800 p-2 text-white text-xs focus:border-copper-500 outline-none" value={inlineImg2Dir} onChange={e => setInlineImg2Dir(e.target.value)} />
                     </div>
                   </div>
+                </div>
+
+                {/* Product Visual Description Override */}
+                <div className="space-y-2 border border-amber-800/50 p-4 rounded bg-amber-950/20">
+                  <label className="text-xs uppercase tracking-widest text-amber-500 font-bold">Product Visual Description (Recommended)</label>
+                  <textarea
+                    placeholder="Describe EXACTLY how your product looks. Example: &#10;'Hammered copper Moscow Mule mug with a curved C-shaped copper handle (same rose-gold color as the body), barrel-shaped body with small uniform hammered dents, polished finish, no brass or gold accents'"
+                    className="w-full bg-stone-900 border border-stone-800 p-3 text-white text-sm focus:border-copper-500 outline-none min-h-[80px]"
+                    value={productVisualDesc}
+                    onChange={e => setProductVisualDesc(e.target.value)}
+                  />
+                  <p className="text-[10px] text-stone-500">This description will be injected EXACTLY into all AI image prompts. Be specific about handles, colors, and shapes!</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">
