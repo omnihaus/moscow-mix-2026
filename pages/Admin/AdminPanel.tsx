@@ -625,13 +625,29 @@ const AdminPanel = () => {
         You are an expert luxury lifestyle editor for 'Moscow Mix'.
         
         TASK:
-        1. FIRST, analyze the attached product image(s). Extract a highly detailed "VISUAL DNA" description including:
-           - Material texture (e.g. hammered copper dents, wood wool fibers).
-           - Shape and silhouette.
-           - Lighting behavior (how light reflects off it).
-           - Color palette.
-           - Unique identifying features (logos, engravings, handles, etc.)
-        2. THEN, write a professional, SEO-optimized blog post (1500-1800 words) based on the title: "${blogTitle}".
+        1. FIRST, analyze the attached product image(s). Extract an EXTREMELY DETAILED "VISUAL DNA" description. This is CRITICAL - the image generator cannot see the image, so your description must be perfect:
+           
+           **HANDLE DETAILS (MOST IMPORTANT)**:
+           - Handle material (copper, brass, stainless steel?)
+           - Handle color (same as body? gold? brass?)
+           - Handle shape (curved/flowing, angular/geometric, C-shaped, D-shaped?)
+           - Handle attachment points (welded? riveted?)
+           - Handle thickness and width
+           
+           **BODY DETAILS**:
+           - Material texture (hammered copper with small/large dents? smooth? brushed?)
+           - Body shape (barrel-shaped, cylindrical, tapered?)
+           - Surface finish (polished, matte, patinated?)
+           - Color palette (rose gold, classic copper, antique copper?)
+           
+           **OTHER FEATURES**:
+           - Rim style (smooth, rolled, lipped?)
+           - Any logos, engravings, or stamps
+           - Base style (flat, footed?)
+           
+        2. Create a "PRODUCT DESCRIPTION STRING" that can be injected into image prompts. Format: "hammered copper mug with [exact handle description], [exact body description], [exact color]"
+        
+        3. THEN, write a professional, SEO-optimized blog post (1500-1800 words) based on the title: "${blogTitle}".
         
         CONTEXT:
         - Brand: High-end copper drinkware & natural fire starters.
@@ -652,21 +668,24 @@ const AdminPanel = () => {
             - You MUST insert exactly 2 image placeholders within the HTML content at logical section breaks to break up the text.
             - Use this EXACT format (do not use markdown images): <div class="image-placeholder" data-prompt="Detailed visual description of the image"></div>
             - **CRITICAL IMAGE PROMPT RULES**:
-              ${coverImgDir ? `* Cover Image: Use this exact direction: "${coverImgDir}"` : '* Cover Image: Must feature the target product prominently, replicating the VISUAL DNA from the uploaded images.'}
-              ${inlineImg1Dir ? `* Inline Image 1: Use this exact direction: "${inlineImg1Dir}"` : '* Inline Image 1: Must be contextually relevant to the surrounding paragraph content AND feature the target product if applicable.'}
-              ${inlineImg2Dir ? `* Inline Image 2: Use this exact direction: "${inlineImg2Dir}"` : '* Inline Image 2: Must be contextually relevant to the surrounding paragraph content AND feature the target product if applicable.'}
-              * ALL image prompts must replicate the exact VISUAL DNA (materials, colors, shapes, lighting) from the uploaded product images.
-              * Image prompts should be 2-3 sentences, highly descriptive, and photorealistic.
+              ${coverImgDir ? `* Cover Image: Use this exact direction: "${coverImgDir}"` : '* Cover Image: Must feature the target product prominently.'}
+              ${inlineImg1Dir ? `* Inline Image 1: Use this exact direction: "${inlineImg1Dir}"` : '* Inline Image 1: Must be contextually relevant to the surrounding paragraph content.'}
+              ${inlineImg2Dir ? `* Inline Image 2: Use this exact direction: "${inlineImg2Dir}"` : '* Inline Image 2: Must be contextually relevant to the surrounding paragraph content.'}
+              
+              **MANDATORY FOR ALL IMAGE PROMPTS**: Every image prompt MUST include the full PRODUCT DESCRIPTION STRING you created. The handle style is especially critical - if the product has a curved copper handle, say "curved flowing copper handle same color as body". If it has an angular brass handle, say "angular brass handle". BE EXACT.
+              
          4. OUTPUT:
             - Return ONLY a valid JSON object.
            {
+             "visualDNA": "Your detailed visual DNA analysis here",
+             "productDescriptionString": "hammered copper Moscow Mule mug with curved flowing copper handle matching the body color, barrel-shaped body with small hammered dents, polished rose-gold copper finish",
              "excerpt": "Engaging summary (150 chars)",
              "content": "Full HTML body...",
              "slug": "seo-friendly-url",
              "tags": ["tag1", "tag2"],
              "metaDescription": "SEO meta description",
-             "coverImagePrompt": "A highly descriptive, photorealistic prompt for the cover image that captures the essence of the headline and replicates the product's visual DNA.",
-             "inlineImagePrompts": ["Contextually relevant prompt for image 1 (must match the surrounding text and replicate product visual DNA)", "Contextually relevant prompt for image 2 (must match the surrounding text and replicate product visual DNA)"]
+             "coverImagePrompt": "A highly descriptive prompt that INCLUDES THE FULL PRODUCT DESCRIPTION STRING and setting",
+             "inlineImagePrompts": ["Prompt with FULL PRODUCT DESCRIPTION STRING and context 1", "Prompt with FULL PRODUCT DESCRIPTION STRING and context 2"]
            }
       `;
 
