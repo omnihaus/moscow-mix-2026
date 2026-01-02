@@ -467,25 +467,13 @@ const AdminPanel = () => {
       }
       return null;
     } catch (e) {
-      console.warn("Nano Banana Pro (Imagen 3) API Error:", e);
+      console.error("Nano Banana Pro (Imagen 3) API Error:", e);
 
-      // FALLBACK: 'Turbo' Engine (cleanest 2026 proxy)
-      // If Google's beta endpoint fails, we use Turbo which respects negative prompting strictly.
-      try {
-        console.log("Activating Turbo Guardrails (No Text Mode)...");
-        const cleanPrompt = `${prompt}, photorealistic, 8k, luxury product photography. (NO TEXT, NO WRITING, NO WATERMARKS)`;
-
-        const fallbackRes = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPrompt)}?model=turbo&nologo=true`);
-        const blob = await fallbackRes.blob();
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-      } catch (err) {
-        console.error("Fallback failed:", err);
-        return null;
-      }
+      // FAILURE STRATEGY: User requested NO FALLBACKS to debug the issue.
+      // We will expose the exact error from Google Cloud.
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      alert(`Google Imagen 3.0 (Nano Banana Pro) Failed: ${msg}`);
+      return null;
     }
   };
 
