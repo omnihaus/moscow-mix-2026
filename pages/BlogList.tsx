@@ -7,20 +7,34 @@ import { ArrowRight } from 'lucide-react';
 export default function BlogList() {
   const { config } = useSiteConfig();
 
+  // Debug: Log all posts and their status
+  console.log('All blog posts:', config.blogPosts.map(p => ({
+    id: p.id,
+    title: p.title.substring(0, 30),
+    status: p.status,
+    scheduledDate: p.scheduledDate
+  })));
+
   // Filter posts to only show published ones on the public site
   // Show: published, undefined status (legacy), or scheduled posts past their date
   const visiblePosts = config.blogPosts.filter(post => {
     // Legacy posts without status field - show them
     if (!post.status || post.status === 'published') {
+      console.log(`Post "${post.title.substring(0, 20)}" - VISIBLE (status: ${post.status || 'none'})`);
       return true;
     }
     // Scheduled posts - only show if scheduled date has passed
     if (post.status === 'scheduled' && post.scheduledDate) {
-      return new Date(post.scheduledDate) <= new Date();
+      const isPast = new Date(post.scheduledDate) <= new Date();
+      console.log(`Post "${post.title.substring(0, 20)}" - ${isPast ? 'VISIBLE' : 'HIDDEN'} (scheduled: ${post.scheduledDate})`);
+      return isPast;
     }
     // Drafts are never shown
+    console.log(`Post "${post.title.substring(0, 20)}" - HIDDEN (status: ${post.status})`);
     return false;
   });
+
+  console.log('Visible posts:', visiblePosts.length);
 
   const featuredPost = visiblePosts[0];
   const remainingPosts = visiblePosts.slice(1);
