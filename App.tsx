@@ -10,6 +10,7 @@ import Contact from './pages/Contact';
 import About from './pages/About';
 import BlogList from './pages/BlogList';
 import BlogPost from './pages/BlogPost';
+import Sitemap from './pages/Sitemap';
 import AdminPanel from './pages/Admin/AdminPanel';
 import { SiteConfigProvider } from './context/SiteConfigContext';
 
@@ -42,6 +43,7 @@ export default function App() {
                   <Route path="/journal/:id" element={<BlogPost />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/contact" element={<Contact />} />
+                  <Route path="/sitemap" element={<Sitemap />} />
                 </Routes>
                 <Footer />
               </>
