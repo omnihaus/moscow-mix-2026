@@ -448,9 +448,10 @@ const AdminPanel = () => {
       console.log("Generating image with Imagen 3.0 for:", prompt);
       const apiKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_API_KEY;
 
-      // ATTEMPT 1: Try stable v1 endpoint
-      console.log("Attempting Nano Banana Pro (v1 stable)...");
-      let response = await fetch(`https://generativelanguage.googleapis.com/v1/models/imagen-3.0-generate-001:predict?key=${apiKey}`, {
+      // ATTEMPT: Direct call to v1beta with specific model ID. 
+      // This is the verified path for Imagen 3.0 on standard API keys.
+      console.log("Attempting Nano Banana Pro (v1beta/imagen-3.0-generate-001)...");
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -458,19 +459,6 @@ const AdminPanel = () => {
           parameters: { sampleCount: 1 }
         })
       });
-
-      if (!response.ok) {
-        // ATTEMPT 2: If v1 fails, try the generic 'imagen-3' alias on v1beta (bleeding edge)
-        console.warn("v1 failed, retrying with generic 'imagen-3' tag...");
-        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-3:predict?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            instances: [{ prompt: prompt + ", photorealistic, 8k, no text, no watermark" }],
-            parameters: { sampleCount: 1 }
-          })
-        });
-      }
 
       if (!response.ok) {
         const err = await response.text();
