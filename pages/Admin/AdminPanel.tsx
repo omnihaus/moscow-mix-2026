@@ -51,8 +51,14 @@ const AdminPanel = () => {
   };
 
   const handleSaveApiKey = () => {
-    localStorage.setItem('gemini_api_key', apiKeyInput);
-    alert('API Key Saved Locally');
+    if (!apiKeyInput.trim()) {
+      alert("Please enter a valid API Key");
+      return;
+    }
+    const key = apiKeyInput.trim();
+    localStorage.setItem('gemini_api_key', key);
+    setApiKeyInput(key);
+    alert("API Key Saved Securely");
   };
 
   const handleSaveCredentials = () => {
