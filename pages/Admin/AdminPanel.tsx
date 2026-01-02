@@ -448,10 +448,22 @@ const AdminPanel = () => {
       console.log("Generating image with Imagen 3.0 for:", prompt);
       const apiKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_API_KEY;
 
-      // ATTEMPT: Direct call to v1beta with specific model ID. 
-      // This is the verified path for Imagen 3.0 on standard API keys.
-      console.log("Attempting Nano Banana Pro (v1beta/imagen-3.0-generate-001)...");
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${apiKey}`, {
+      // STEP 1: Discovery - Find the exact Model ID allowed for this key
+      console.log("Auto-Discovering correct Imagen model ID...");
+      const listResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      if (!listResp.ok) {
+        throw new Error("Could not connect to Google API to check models. Check internet/key.");
+      }
+      const listData = await listResp.json();
+      const models = listData.models || [];
+      // Look for any model with 'imagen' in the name
+      const imagenModel = models.find((m: any) => m.name.includes('imagen') && m.supportedGenerationMethods?.includes('predict'));
+
+      const targetModel = imagenModel ? imagenModel.name.replace('models/', '') : 'imagen-3.0-generate-001';
+      console.log("Selected Model:", targetModel);
+
+      // STEP 2: Generate
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:predict?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
