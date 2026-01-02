@@ -1166,18 +1166,7 @@ const AdminPanel = () => {
                   </div>
                   <p className="text-xs text-stone-600">Required for Journal AI generation features.</p>
                 </div>
-  const handleSaveApiKey = () => {
-    if (!apiKeyInput.trim()) {
-                  alert("Please enter a valid API Key");
-                return;
-    }
-                const key = apiKeyInput.trim();
-                localStorage.setItem('gemini_api_key', key);
-                // Also update the state used by the fetch immediately if needed, 
-                // though the fetch reads from localStorage directly.
-                setApiKeyInput(key);
-                alert("API Key Saved Securely");
-  };
+                <button onClick={handleSaveApiKey} className="w-full bg-copper-900/30 text-copper-400 hover:bg-copper-900/50 py-3 px-4 rounded text-sm font-bold border border-copper-900">Save API Key</button>
               </div>
             </div>
           )}
