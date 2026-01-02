@@ -529,7 +529,7 @@ const AdminPanel = () => {
 
         if (!response.ok) {
           console.log("Using Nano Banana Pro (Imagen 4 Ultra)...");
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-ultra-generate-001:predict?key=${apiKey}`, {
+          const retryResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-ultra-generate-001:predict?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -538,11 +538,11 @@ const AdminPanel = () => {
             })
           });
 
-          if (!response.ok) {
-            const err = await response.text();
+          if (!retryResponse.ok) {
+            const err = await retryResponse.text();
             throw new Error(err);
           }
-          const data = await response.json();
+          const data = await retryResponse.json();
           const base64Image = data.predictions?.[0]?.bytesBase64Encoded;
           if (base64Image) return `data:image/jpeg;base64,${base64Image}`;
           return null;
