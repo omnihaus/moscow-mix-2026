@@ -713,7 +713,7 @@ const AdminPanel = () => {
         const imgPrompt = match[1]; // The prompt text
 
         setGenerationStatus(`Creating image: ${imgPrompt.substring(0, 20)}...`);
-        const imgBase64 = await generateImageFromPrompt(genAI, imgPrompt);
+        const imgBase64 = await generateImageFromPrompt(genAI, imgPrompt, imageGenModel);
 
         if (imgBase64) {
           let imageUrl = await uploadBase64ToFirebase(imgBase64, 'blog-content');
