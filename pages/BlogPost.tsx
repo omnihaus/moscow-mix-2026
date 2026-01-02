@@ -9,7 +9,14 @@ export default function BlogPost() {
   const { config } = useSiteConfig();
   const post = config.blogPosts.find(p => p.id === id);
 
-  if (!post) return <div className="pt-32 text-center text-white">Article not found</div>;
+  // Check if post should be visible (published, legacy, or scheduled and past date)
+  const isVisible = post && (
+    !post.status ||
+    post.status === 'published' ||
+    (post.status === 'scheduled' && post.scheduledDate && new Date(post.scheduledDate) <= new Date())
+  );
+
+  if (!post || !isVisible) return <div className="pt-32 text-center text-white">Article not found</div>;
 
   return (
     <div className="bg-stone-950 min-h-screen pt-32 pb-24">
@@ -93,7 +100,7 @@ export default function BlogPost() {
       `}</style>
 
       <article className="max-w-3xl mx-auto px-6">
-        
+
         {/* Back Link */}
         <Link to="/journal" className="inline-flex items-center gap-2 text-stone-500 hover:text-white mb-12 text-xs uppercase tracking-widest">
           <ArrowLeft size={14} /> Back to Journal
@@ -102,21 +109,21 @@ export default function BlogPost() {
         {/* Header */}
         <header className="mb-12 text-center">
           <div className="flex flex-wrap justify-center items-center gap-6 text-stone-500 text-xs uppercase tracking-widest mb-6 font-medium">
-             <span className="flex items-center gap-2"><Calendar size={14} /> {post.date}</span>
-             <span className="flex items-center gap-2"><Clock size={14} /> {post.readTime}</span>
-             <span className="flex items-center gap-2 text-copper-400"><User size={14} /> {post.author}</span>
+            <span className="flex items-center gap-2"><Calendar size={14} /> {post.date}</span>
+            <span className="flex items-center gap-2"><Clock size={14} /> {post.readTime}</span>
+            <span className="flex items-center gap-2 text-copper-400"><User size={14} /> {post.author}</span>
           </div>
           <h1 className="font-serif text-4xl md:text-6xl text-white mb-8 leading-tight">{post.title}</h1>
           <p className="text-xl text-stone-300 italic font-serif leading-relaxed">"{post.excerpt}"</p>
-          
+
           {post.tags && post.tags.length > 0 && (
-              <div className="flex justify-center gap-2 mt-8">
-                  {post.tags.map(tag => (
-                      <span key={tag} className="flex items-center gap-1 text-[10px] border border-stone-800 px-3 py-1 rounded-full text-stone-400 uppercase tracking-widest">
-                          <Tag size={10} /> {tag}
-                      </span>
-                  ))}
-              </div>
+            <div className="flex justify-center gap-2 mt-8">
+              {post.tags.map(tag => (
+                <span key={tag} className="flex items-center gap-1 text-[10px] border border-stone-800 px-3 py-1 rounded-full text-stone-400 uppercase tracking-widest">
+                  <Tag size={10} /> {tag}
+                </span>
+              ))}
+            </div>
           )}
         </header>
 
@@ -126,9 +133,9 @@ export default function BlogPost() {
         </div>
 
         {/* Content Rendered as HTML */}
-        <div 
-            className="blog-content font-sans text-lg"
-            dangerouslySetInnerHTML={{ __html: post.content }}
+        <div
+          className="blog-content font-sans text-lg"
+          dangerouslySetInnerHTML={{ __html: post.content }}
         />
 
         {/* Footer */}
@@ -138,7 +145,7 @@ export default function BlogPost() {
             <span className="text-white font-serif text-lg">{post.author}</span>
           </div>
           <div className="flex gap-4">
-             <span className="text-stone-500 text-xs uppercase tracking-widest cursor-pointer hover:text-white">Share Article</span>
+            <span className="text-stone-500 text-xs uppercase tracking-widest cursor-pointer hover:text-white">Share Article</span>
           </div>
         </div>
 

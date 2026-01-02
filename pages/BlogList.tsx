@@ -6,8 +6,24 @@ import { ArrowRight } from 'lucide-react';
 
 export default function BlogList() {
   const { config } = useSiteConfig();
-  const featuredPost = config.blogPosts[0];
-  const remainingPosts = config.blogPosts.slice(1);
+
+  // Filter posts to only show published ones on the public site
+  // Show: published, undefined status (legacy), or scheduled posts past their date
+  const visiblePosts = config.blogPosts.filter(post => {
+    // Legacy posts without status field - show them
+    if (!post.status || post.status === 'published') {
+      return true;
+    }
+    // Scheduled posts - only show if scheduled date has passed
+    if (post.status === 'scheduled' && post.scheduledDate) {
+      return new Date(post.scheduledDate) <= new Date();
+    }
+    // Drafts are never shown
+    return false;
+  });
+
+  const featuredPost = visiblePosts[0];
+  const remainingPosts = visiblePosts.slice(1);
 
   return (
     <div className="bg-stone-950 min-h-screen pt-24 pb-24">
@@ -18,18 +34,18 @@ export default function BlogList() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6">
-        
+
         {/* Featured Post */}
         {featuredPost && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-24 items-center">
             <Link to={`/journal/${featuredPost.id}`} className="block overflow-hidden group">
               <div className="aspect-video w-full bg-stone-900 overflow-hidden relative">
-                 <img 
-                    src={featuredPost.coverImage} 
-                    alt={featuredPost.title} 
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                 />
-                 <div className="absolute inset-0 bg-stone-950/20 group-hover:bg-transparent transition-colors"></div>
+                <img
+                  src={featuredPost.coverImage}
+                  alt={featuredPost.title}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-stone-950/20 group-hover:bg-transparent transition-colors"></div>
               </div>
             </Link>
             <div>
@@ -57,9 +73,9 @@ export default function BlogList() {
             <article key={post.id} className="group">
               <Link to={`/journal/${post.id}`} className="block mb-6 overflow-hidden">
                 <div className="aspect-[3/2] bg-stone-900 overflow-hidden">
-                  <img 
-                    src={post.coverImage} 
-                    alt={post.title} 
+                  <img
+                    src={post.coverImage}
+                    alt={post.title}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-80 group-hover:opacity-100"
                   />
                 </div>
