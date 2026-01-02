@@ -15,8 +15,8 @@ export default function Home() {
    return (
       <div className="bg-stone-950 min-h-screen">
          <SEO
-            title="Elemental Luxury"
-            description="Authentic copper drinkware and natural fire starters—crafted with purity and purpose. Premium Moscow Mule mugs, copper bottles, and sustainable fire products."
+            title="Pure Copper Mugs and Natural Fire Starters"
+            description="Moscow Mix creates solid 100% pure copper mugs and natural fire starters with authenticity and purity at their core. No plated copper, no fillers, no synthetic shortcuts."
             url="https://www.moscowmix.com"
          />
          <Hero />

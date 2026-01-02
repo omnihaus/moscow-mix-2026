@@ -17,7 +17,7 @@ interface SEOProps {
 }
 
 const SITE_NAME = 'Moscow Mix';
-const DEFAULT_DESCRIPTION = 'Authentic copper drinkware and natural fire starters—crafted with purity and purpose. Premium Moscow Mule mugs, copper bottles, and sustainable fire products.';
+const DEFAULT_DESCRIPTION = 'Moscow Mix creates solid 100% pure copper mugs and natural fire starters with authenticity and purity at their core. No plated copper, no fillers, no synthetic shortcuts.';
 const DEFAULT_IMAGE = 'https://www.moscowmix.com/og-image.jpg';
 const SITE_URL = 'https://www.moscowmix.com';
 
@@ -33,7 +33,7 @@ export default function SEO({
     availability = 'InStock',
     schemaData
 }: SEOProps) {
-    const fullTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} | Elemental Luxury`;
+    const fullTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} | Pure Copper Mugs and Natural Fire Starters`;
 
     // Update document head
     React.useEffect(() => {
