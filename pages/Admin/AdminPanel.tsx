@@ -442,12 +442,11 @@ const AdminPanel = () => {
       console.log("Generating image with Imagen 3.0 for:", prompt);
       const apiKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_API_KEY;
 
-      // Direct REST call to Imagen 3.0 endpoint
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${apiKey}`, {
+      // ATTEMPT 1: Try stable v1 endpoint
+      console.log("Attempting Nano Banana Pro (v1 stable)...");
+      let response = await fetch(`https://generativelanguage.googleapis.com/v1/models/imagen-3.0-generate-001:predict?key=${apiKey}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           instances: [{ prompt: prompt + ", photorealistic, 8k, no text, no watermark" }],
           parameters: { sampleCount: 1 }
@@ -455,12 +454,24 @@ const AdminPanel = () => {
       });
 
       if (!response.ok) {
+        // ATTEMPT 2: If v1 fails, try the generic 'imagen-3' alias on v1beta (bleeding edge)
+        console.warn("v1 failed, retrying with generic 'imagen-3' tag...");
+        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-3:predict?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            instances: [{ prompt: prompt + ", photorealistic, 8k, no text, no watermark" }],
+            parameters: { sampleCount: 1 }
+          })
+        });
+      }
+
+      if (!response.ok) {
         const err = await response.text();
-        throw new Error(`Imagen API Error: ${err}`);
+        throw new Error(err);
       }
 
       const data = await response.json();
-      // Imagen returns base64 directly in predictions[0].bytesBase64Encoded
       const base64Image = data.predictions?.[0]?.bytesBase64Encoded;
 
       if (base64Image) {
@@ -469,10 +480,16 @@ const AdminPanel = () => {
       return null;
     } catch (e) {
       console.error("Nano Banana Pro (Imagen 3) API Error:", e);
-      // STRICT FAILURE: User rejected all backups.
-      // We will expose the exact error from Google Cloud.
+      // STRICT FAILURE: User requested NO FALLBACKS.
       const msg = e instanceof Error ? e.message : "Unknown error";
-      alert(`Google Imagen 3.0 (Nano Banana Pro) Failed: ${msg}`);
+
+      // HELPFUL HINT: Check for common 404/403 causes
+      let hint = "";
+      if (msg.includes("404") || msg.includes("NOT_FOUND")) {
+        hint = "\n\nHINT: Google says this model doesn't exist for your key. Please go to Google Cloud Console -> APIs & Services -> Enabled APIs and ensure 'Generative Language API' AND 'Vertex AI API' are enabled.";
+      }
+
+      alert(`Google Imagen 3.0 Failed: ${msg}${hint}`);
       return null;
     }
   };
