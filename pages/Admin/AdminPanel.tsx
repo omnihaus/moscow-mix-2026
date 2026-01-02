@@ -55,9 +55,18 @@ const AdminPanel = () => {
 
       if (!data.models) return alert("No models found directly. Check permissions.");
 
-      // Filter for image generation models if possible, or key ones
-      const names = data.models.map((m: any) => m.name.replace('models/', '')).join('\n');
-      alert(`Available Models for your Key:\n\n${names}`);
+      // Filter for IMAGE generation models (look for 'predict' method or 'imagen' name)
+      const imageModels = data.models.filter((m: any) =>
+        m.name.includes('imagen') || (m.supportedGenerationMethods && m.supportedGenerationMethods.includes('predict'))
+      );
+
+      if (imageModels.length === 0) {
+        alert("No specific 'Image Generation' models found for this key.\n\nTry enabling 'Vertex AI' in Google Cloud, or use the 'Flux' option.");
+        return;
+      }
+
+      const names = imageModels.map((m: any) => m.name.replace('models/', '')).join('\n');
+      alert(`Valid IMAGE Models for your Key:\n\n${names}\n\n(Copy one of these exactly)`);
     } catch (e) {
       alert("Failed to fetch models: " + e);
     }
