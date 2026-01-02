@@ -3,6 +3,7 @@ import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useSiteConfig } from '../context/SiteConfigContext';
 import { ArrowLeft, Clock, Calendar, User, Tag } from 'lucide-react';
+import SEO, { generateArticleSchema } from '../components/SEO';
 
 export default function BlogPost() {
   const { id } = useParams<{ id: string }>();
@@ -18,8 +19,28 @@ export default function BlogPost() {
 
   if (!post || !isVisible) return <div className="pt-32 text-center text-white">Article not found</div>;
 
+  // Generate article schema
+  const articleSchema = generateArticleSchema({
+    title: post.title,
+    description: post.metaDescription || post.excerpt,
+    image: post.coverImage,
+    url: `https://www.moscowmix.com/journal/${post.id}`,
+    datePublished: post.publishedAt || new Date().toISOString(),
+    author: post.author
+  });
+
   return (
     <div className="bg-stone-950 min-h-screen pt-32 pb-24">
+      <SEO
+        title={post.title}
+        description={post.metaDescription || post.excerpt}
+        image={post.coverImage}
+        url={`https://www.moscowmix.com/journal/${post.id}`}
+        type="article"
+        publishedTime={post.publishedAt}
+        author={post.author}
+        schemaData={articleSchema}
+      />
       {/* Custom Styles for Blog Content to support the Admin Editor's HTML output */}
       <style>{`
         .blog-content p {

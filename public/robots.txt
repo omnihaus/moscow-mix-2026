@@ -1,0 +1,13 @@
+# Moscow Mix Website
+
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://www.moscowmix.com/sitemap.xml
+
+# Crawl-delay (optional, uncomment if needed)
+# Crawl-delay: 1
+
+# Disallow admin area
+Disallow: /admin
