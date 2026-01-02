@@ -3,7 +3,7 @@ import { Send, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 // Web3Forms access key - email destination is configured on web3forms.com dashboard
 // To set this up: 1) Go to web3forms.com 2) Enter cheryl@omnihaus.co 3) Get the access key
-const WEB3FORMS_ACCESS_KEY = 'YOUR_ACCESS_KEY_HERE'; // Replace with actual key from web3forms.com
+const WEB3FORMS_ACCESS_KEY = '2006286d-5d73-447a-92ee-5d2133792070';
 
 type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
