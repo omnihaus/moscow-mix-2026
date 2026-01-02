@@ -77,18 +77,38 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
-        const data = docSnap.data() as SiteConfig;
-        
+        const firebaseData = docSnap.data() as SiteConfig;
+
+        // Smart merge: Don't overwrite local with stale Firebase data
+        // Compare by checking if local has posts that Firebase doesn't
+        const localPostIds = new Set(config.blogPosts.map(p => p.id));
+        const firebasePostIds = new Set((firebaseData.blogPosts || []).map(p => p.id));
+
+        // Check if local has posts that Firebase doesn't (means local is newer)
+        const localHasNewerPosts = config.blogPosts.some(p => !firebasePostIds.has(p.id));
+
+        // Use local blogPosts if local has newer content, otherwise use Firebase
+        const blogPostsToUse = localHasNewerPosts
+          ? config.blogPosts
+          : (firebaseData.blogPosts && firebaseData.blogPosts.length > 0 ? firebaseData.blogPosts : DEFAULT_CONFIG.blogPosts);
+
+        console.log('Firebase sync:', {
+          localPosts: config.blogPosts.length,
+          firebasePosts: (firebaseData.blogPosts || []).length,
+          localHasNewerPosts,
+          using: localHasNewerPosts ? 'local' : 'firebase'
+        });
+
         // Merge Cloud data with Default structure to ensure no missing fields
         setConfig({
-            heroHeadline: data.heroHeadline || DEFAULT_CONFIG.heroHeadline,
-            heroSubheadline: data.heroSubheadline || DEFAULT_CONFIG.heroSubheadline,
-            assets: { ...DEFAULT_CONFIG.assets, ...(data.assets || {}) },
-            story: { ...DEFAULT_CONFIG.story, ...(data.story || {}) },
-            products: data.products && data.products.length > 0 ? data.products : DEFAULT_CONFIG.products,
-            blogPosts: data.blogPosts && data.blogPosts.length > 0 ? data.blogPosts : DEFAULT_CONFIG.blogPosts,
-            adminPassword: data.adminPassword || 'admin',
-            passwordHint: data.passwordHint || 'Default is admin'
+          heroHeadline: firebaseData.heroHeadline || DEFAULT_CONFIG.heroHeadline,
+          heroSubheadline: firebaseData.heroSubheadline || DEFAULT_CONFIG.heroSubheadline,
+          assets: { ...DEFAULT_CONFIG.assets, ...(firebaseData.assets || {}) },
+          story: { ...DEFAULT_CONFIG.story, ...(firebaseData.story || {}) },
+          products: firebaseData.products && firebaseData.products.length > 0 ? firebaseData.products : DEFAULT_CONFIG.products,
+          blogPosts: blogPostsToUse,
+          adminPassword: firebaseData.adminPassword || 'admin',
+          passwordHint: firebaseData.passwordHint || 'Default is admin'
         });
       } else {
         // First time run: Upload default data to Firebase so it exists next time
@@ -107,11 +127,11 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
 
   // --- HELPER: Save Full Config to Firebase ---
   const saveToFirebase = async (newConfig: SiteConfig) => {
-      try {
-          await setDoc(doc(db, "moscow_mix", "live_site"), newConfig);
-      } catch (e) {
-          console.error("Firebase Save Error:", e);
-      }
+    try {
+      await setDoc(doc(db, "moscow_mix", "live_site"), newConfig);
+    } catch (e) {
+      console.error("Firebase Save Error:", e);
+    }
   };
 
   // --- ACTIONS ---
@@ -137,8 +157,8 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
 
   const updateProduct = (product: Product) => {
     const newConfig = {
-        ...config,
-        products: config.products.map(p => p.id === product.id ? product : p)
+      ...config,
+      products: config.products.map(p => p.id === product.id ? product : p)
     };
     setConfig(newConfig);
     saveToFirebase(newConfig);
@@ -153,17 +173,17 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
   const reorderProduct = (id: string, direction: 'up' | 'down') => {
     const index = config.products.findIndex(p => p.id === id);
     if (index === -1) return;
-    
+
     // Prevent out of bounds
     if (direction === 'up' && index === 0) return;
     if (direction === 'down' && index === config.products.length - 1) return;
 
     const newProducts = [...config.products];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    
+
     // Swap elements
     [newProducts[index], newProducts[targetIndex]] = [newProducts[targetIndex], newProducts[index]];
-    
+
     const newConfig = { ...config, products: newProducts };
     setConfig(newConfig);
     saveToFirebase(newConfig);
@@ -201,35 +221,35 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
   };
 
   const changeAdminPassword = (newPass: string, newHint?: string) => {
-      const newConfig = { 
-          ...config, 
-          adminPassword: newPass,
-          passwordHint: newHint || config.passwordHint 
-      };
-      setConfig(newConfig);
-      saveToFirebase(newConfig);
+    const newConfig = {
+      ...config,
+      adminPassword: newPass,
+      passwordHint: newHint || config.passwordHint
+    };
+    setConfig(newConfig);
+    saveToFirebase(newConfig);
   };
 
   const verifyAdminPassword = (input: string) => {
-      // Check the config state (which is synced with Cloud)
-      return input === (config.adminPassword || 'admin');
+    // Check the config state (which is synced with Cloud)
+    return input === (config.adminPassword || 'admin');
   };
 
   return (
-    <SiteConfigContext.Provider value={{ 
-      config, 
-      setConfig, 
-      updateHeroText, 
-      updateAssets, 
-      addProduct, 
+    <SiteConfigContext.Provider value={{
+      config,
+      setConfig,
+      updateHeroText,
+      updateAssets,
+      addProduct,
       updateProduct,
       deleteProduct,
       reorderProduct,
-      addBlogPost, 
-      updateBlogPost, 
+      addBlogPost,
+      updateBlogPost,
       deleteBlogPost,
       updateStory,
-      refreshData: fetchData, 
+      refreshData: fetchData,
       isLoading,
       verifyAdminPassword,
       changeAdminPassword
