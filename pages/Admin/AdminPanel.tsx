@@ -630,6 +630,7 @@ const AdminPanel = () => {
            - Shape and silhouette.
            - Lighting behavior (how light reflects off it).
            - Color palette.
+           - Unique identifying features (logos, engravings, handles, etc.)
         2. THEN, write a professional, SEO-optimized blog post (1500-1800 words) based on the title: "${blogTitle}".
         
         CONTEXT:
@@ -642,12 +643,20 @@ const AdminPanel = () => {
         1. LINKS: 
            - Include EXACTLY 2 internal links to the product IDs provided above. 
            - **CRITICAL**: Use valid HTML relative paths ONLY for HashRouter. Example: <a href="#/product/copper-mule-16oz" style="color: #3b82f6;">Product Name</a>. 
+           - Include 2-3 external links to HIGH-AUTHORITY relevant domains (e.g., Wikipedia for historical context, authoritative cocktail/culinary sites, scientific journals for material properties).
+           - External links must open in new tab: <a href="https://example.com" target="_blank" rel="noopener noreferrer" style="color: #3b82f6;">Link Text</a>
         2. FORMAT:
            - Use semantic HTML (<h2>, 3-4 sentences per paragraph, <h3> for subsections).
            - Do NOT use markdown. Return raw HTML.
          3. IMAGES:
             - You MUST insert exactly 2 image placeholders within the HTML content at logical section breaks to break up the text.
             - Use this EXACT format (do not use markdown images): <div class="image-placeholder" data-prompt="Detailed visual description of the image"></div>
+            - **CRITICAL IMAGE PROMPT RULES**:
+              ${coverImgDir ? `* Cover Image: Use this exact direction: "${coverImgDir}"` : '* Cover Image: Must feature the target product prominently, replicating the VISUAL DNA from the uploaded images.'}
+              ${inlineImg1Dir ? `* Inline Image 1: Use this exact direction: "${inlineImg1Dir}"` : '* Inline Image 1: Must be contextually relevant to the surrounding paragraph content AND feature the target product if applicable.'}
+              ${inlineImg2Dir ? `* Inline Image 2: Use this exact direction: "${inlineImg2Dir}"` : '* Inline Image 2: Must be contextually relevant to the surrounding paragraph content AND feature the target product if applicable.'}
+              * ALL image prompts must replicate the exact VISUAL DNA (materials, colors, shapes, lighting) from the uploaded product images.
+              * Image prompts should be 2-3 sentences, highly descriptive, and photorealistic.
          4. OUTPUT:
             - Return ONLY a valid JSON object.
            {
@@ -656,9 +665,8 @@ const AdminPanel = () => {
              "slug": "seo-friendly-url",
              "tags": ["tag1", "tag2"],
              "metaDescription": "SEO meta description",
-             "metaDescription": "SEO meta description",
-             "coverImagePrompt": "A highly descriptive, photorealistic prompt for the cover image that captures the essence of the headline.",
-             "inlineImagePrompts": ["Contextually relevant prompt for image 1 (must match the surrounding text)", "Contextually relevant prompt for image 2"]
+             "coverImagePrompt": "A highly descriptive, photorealistic prompt for the cover image that captures the essence of the headline and replicates the product's visual DNA.",
+             "inlineImagePrompts": ["Contextually relevant prompt for image 1 (must match the surrounding text and replicate product visual DNA)", "Contextually relevant prompt for image 2 (must match the surrounding text and replicate product visual DNA)"]
            }
       `;
 
