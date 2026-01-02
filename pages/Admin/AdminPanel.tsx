@@ -951,9 +951,24 @@ const AdminPanel = () => {
                 </div>
 
                 {/* Content Direction Field */}
-                <div className="space-y-2">
-                  <label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Content Direction (Optional)</label>
-                  <textarea placeholder="e.g. Focus on the history of the Moscow Mule, or explain why wood wool is better than lighter fluid..." className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none h-20" value={blogContentDirection} onChange={e => setBlogContentDirection(e.target.value)} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Content Direction (Optional)</label>
+                    <textarea placeholder="e.g. Focus on the history of the Moscow Mule..." className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none h-20" value={blogContentDirection} onChange={e => setBlogContentDirection(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Image Gen Model</label>
+                    <select
+                      value={imageGenModel}
+                      onChange={(e) => setImageGenModel(e.target.value as any)}
+                      className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none h-20"
+                    >
+                      <option value="imagen-3">Google Imagen 3.0 (Pro Quality)</option>
+                      <option value="flux">Flux (Text Friendly)</option>
+                      <option value="turbo">Turbo (Fastest)</option>
+                    </select>
+                    <p className="text-[10px] text-stone-600 mt-1">Select 'Flux' if text looks bad.</p>
+                  </div>
                 </div>
 
                 {/* AI Image Directions */}
