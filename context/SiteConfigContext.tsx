@@ -49,6 +49,28 @@ interface SiteConfigContextType {
   removeAdminUser: (userId: string) => void;
 }
 
+// Helper: Recursively remove undefined values from an object
+// Firestore doesn't accept undefined - it will throw an error
+const removeUndefined = (obj: any): any => {
+  if (obj === null || obj === undefined) return null;
+  if (Array.isArray(obj)) {
+    return obj.map(item => removeUndefined(item));
+  }
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const value = obj[key];
+        if (value !== undefined) {
+          cleaned[key] = removeUndefined(value);
+        }
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+};
+
 const SiteConfigContext = createContext<SiteConfigContextType | undefined>(undefined);
 
 export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
@@ -204,7 +226,9 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
 
     try {
       const docRef = doc(db, "moscow_mix", "live_site");
-      await setDoc(docRef, newConfig);
+      // Remove undefined values - Firestore doesn't accept them
+      const sanitizedConfig = removeUndefined(newConfig);
+      await setDoc(docRef, sanitizedConfig);
 
       const saveTime = Date.now() - startTime;
       console.log('Firebase save: setDoc completed in', saveTime, 'ms');
@@ -307,7 +331,9 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
 
     try {
       const docRef = doc(db, "moscow_mix", "live_site");
-      await setDoc(docRef, newConfig);
+      // Remove undefined values - Firestore doesn't accept them
+      const sanitizedConfig = removeUndefined(newConfig);
+      await setDoc(docRef, sanitizedConfig);
 
       console.log('addBlogPost: Firebase save completed successfully');
 
@@ -341,7 +367,9 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
 
     try {
       const docRef = doc(db, "moscow_mix", "live_site");
-      await setDoc(docRef, newConfig);
+      // Remove undefined values - Firestore doesn't accept them
+      const sanitizedConfig = removeUndefined(newConfig);
+      await setDoc(docRef, sanitizedConfig);
 
       console.log('updateBlogPost: Firebase save completed successfully');
 
