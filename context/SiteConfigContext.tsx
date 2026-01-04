@@ -130,10 +130,34 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
       if (docSnap.exists()) {
         const firebaseData = docSnap.data() as SiteConfig;
 
-        console.log('Firebase sync: Using Firebase as source of truth', {
-          firebasePosts: (firebaseData.blogPosts || []).length,
-          firebaseProducts: (firebaseData.products || []).length
+        // Get current local state for comparison
+        const localPosts = config.blogPosts || [];
+        const firebasePosts = firebaseData.blogPosts || [];
+
+        console.log('Firebase sync: Comparing data', {
+          localPosts: localPosts.length,
+          firebasePosts: firebasePosts.length,
+          timeSinceLastSave: Date.now() - getLastSaveTime()
         });
+
+        // CRITICAL: If local has MORE posts than Firebase, our save hasn't propagated yet
+        // Don't overwrite local data with stale Firebase data!
+        if (localPosts.length > firebasePosts.length) {
+          console.log('Firebase sync: LOCAL has MORE posts than Firebase - keeping local data (save not propagated yet)');
+          setIsLoading(false);
+          return;
+        }
+
+        // Also check if local has posts that Firebase doesn't have (by ID)
+        const firebasePostIds = new Set(firebasePosts.map(p => p.id));
+        const localOnlyPosts = localPosts.filter(p => !firebasePostIds.has(p.id));
+        if (localOnlyPosts.length > 0) {
+          console.log('Firebase sync: Local has posts not in Firebase yet - keeping local data', localOnlyPosts.map(p => p.title));
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('Firebase sync: Using Firebase as source of truth');
 
         // ALWAYS use Firebase data as the source of truth
         // This ensures all devices see the same content
