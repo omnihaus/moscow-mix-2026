@@ -62,6 +62,10 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
 
   const [isLoading, setIsLoading] = useState(false);
 
+  // Track when we're saving to prevent fetch from overwriting
+  const [isSaving, setIsSaving] = useState(false);
+  const lastSaveTimeRef = React.useRef<number>(0);
+
   // 2. Smart Auto-Save to Local Storage
   useEffect(() => {
     try {
@@ -83,6 +87,19 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
 
   // 3. Fetch from Firebase (Sync with Cloud) - Firebase is ALWAYS the source of truth
   const fetchData = async () => {
+    // Don't fetch if we're in the middle of saving (prevents race condition)
+    if (isSaving) {
+      console.log('Firebase sync: Skipping - save in progress');
+      return;
+    }
+
+    // Don't fetch if we just saved within the last 3 seconds (prevents overwriting fresh data)
+    const timeSinceLastSave = Date.now() - lastSaveTimeRef.current;
+    if (timeSinceLastSave < 3000 && lastSaveTimeRef.current > 0) {
+      console.log('Firebase sync: Skipping - recent save detected', timeSinceLastSave, 'ms ago');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const docRef = doc(db, "moscow_mix", "live_site");
@@ -127,10 +144,15 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
 
   // --- HELPER: Save Full Config to Firebase ---
   const saveToFirebase = async (newConfig: SiteConfig) => {
+    setIsSaving(true);
+    lastSaveTimeRef.current = Date.now();
     try {
       await setDoc(doc(db, "moscow_mix", "live_site"), newConfig);
+      console.log('Firebase save: Complete');
     } catch (e) {
       console.error("Firebase Save Error:", e);
+    } finally {
+      setIsSaving(false);
     }
   };
 
