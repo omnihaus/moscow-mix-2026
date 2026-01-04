@@ -69,7 +69,7 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
     }
   }, [config]);
 
-  // 3. Fetch from Firebase (Sync with Cloud)
+  // 3. Fetch from Firebase (Sync with Cloud) - Firebase is ALWAYS the source of truth
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -79,34 +79,20 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
       if (docSnap.exists()) {
         const firebaseData = docSnap.data() as SiteConfig;
 
-        // Smart merge: Don't overwrite local with stale Firebase data
-        // Compare by checking if local has posts that Firebase doesn't
-        const localPostIds = new Set(config.blogPosts.map(p => p.id));
-        const firebasePostIds = new Set((firebaseData.blogPosts || []).map(p => p.id));
-
-        // Check if local has posts that Firebase doesn't (means local is newer)
-        const localHasNewerPosts = config.blogPosts.some(p => !firebasePostIds.has(p.id));
-
-        // Use local blogPosts if local has newer content, otherwise use Firebase
-        const blogPostsToUse = localHasNewerPosts
-          ? config.blogPosts
-          : (firebaseData.blogPosts && firebaseData.blogPosts.length > 0 ? firebaseData.blogPosts : DEFAULT_CONFIG.blogPosts);
-
-        console.log('Firebase sync:', {
-          localPosts: config.blogPosts.length,
+        console.log('Firebase sync: Using Firebase as source of truth', {
           firebasePosts: (firebaseData.blogPosts || []).length,
-          localHasNewerPosts,
-          using: localHasNewerPosts ? 'local' : 'firebase'
+          firebaseProducts: (firebaseData.products || []).length
         });
 
-        // Merge Cloud data with Default structure to ensure no missing fields
+        // ALWAYS use Firebase data as the source of truth
+        // This ensures all devices see the same content
         setConfig({
           heroHeadline: firebaseData.heroHeadline || DEFAULT_CONFIG.heroHeadline,
           heroSubheadline: firebaseData.heroSubheadline || DEFAULT_CONFIG.heroSubheadline,
           assets: { ...DEFAULT_CONFIG.assets, ...(firebaseData.assets || {}) },
           story: { ...DEFAULT_CONFIG.story, ...(firebaseData.story || {}) },
           products: firebaseData.products && firebaseData.products.length > 0 ? firebaseData.products : DEFAULT_CONFIG.products,
-          blogPosts: blogPostsToUse,
+          blogPosts: firebaseData.blogPosts && firebaseData.blogPosts.length > 0 ? firebaseData.blogPosts : DEFAULT_CONFIG.blogPosts,
           adminPassword: firebaseData.adminPassword || 'admin',
           passwordHint: firebaseData.passwordHint || 'Default is admin'
         });
@@ -116,6 +102,7 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
       }
     } catch (error) {
       console.error('Error fetching data from Firebase:', error);
+      // On error, keep using whatever data we have (localStorage fallback)
     } finally {
       setIsLoading(false);
     }
