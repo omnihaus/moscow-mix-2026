@@ -291,12 +291,40 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
     saveToFirebase(newConfig);
   };
 
+  // BLOG POST FUNCTIONS - Save-First Architecture
+  // We save to Firebase FIRST, then update local state ONLY if save succeeds
+  // This prevents ghost posts that appear locally but aren't persisted
+
   const addBlogPost = async (post: BlogPost): Promise<void> => {
     const newPost = { ...post, author: post.author || 'Michael B.' };
     const newConfig = { ...config, blogPosts: [newPost, ...config.blogPosts] };
-    setConfig(newConfig);
-    await saveToFirebase(newConfig);
-    console.log('addBlogPost: Save complete, post persisted:', post.title);
+
+    console.log('addBlogPost: Saving to Firebase FIRST...', { title: post.title, totalPosts: newConfig.blogPosts.length });
+
+    // SAVE TO FIREBASE FIRST - before updating local state
+    setIsSaving(true);
+    setLastSaveTime(Date.now());
+
+    try {
+      const docRef = doc(db, "moscow_mix", "live_site");
+      await setDoc(docRef, newConfig);
+
+      console.log('addBlogPost: Firebase save completed successfully');
+
+      // ONLY update local state after Firebase confirms
+      setConfig(newConfig);
+
+      // Also update localStorage as backup
+      localStorage.setItem('moscow_mix_data_v1', JSON.stringify(newConfig));
+
+      console.log('addBlogPost: Local state updated, post persisted:', post.title);
+    } catch (error) {
+      console.error('addBlogPost: Firebase save FAILED', error);
+      // DO NOT update local state - the save failed!
+      throw error; // Re-throw so caller can show error to user
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const updateBlogPost = async (post: BlogPost): Promise<void> => {
@@ -304,9 +332,33 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
       ...config,
       blogPosts: config.blogPosts.map(p => p.id === post.id ? post : p)
     };
-    setConfig(newConfig);
-    await saveToFirebase(newConfig);
-    console.log('updateBlogPost: Save complete, post updated:', post.title);
+
+    console.log('updateBlogPost: Saving to Firebase FIRST...', { title: post.title });
+
+    // SAVE TO FIREBASE FIRST - before updating local state
+    setIsSaving(true);
+    setLastSaveTime(Date.now());
+
+    try {
+      const docRef = doc(db, "moscow_mix", "live_site");
+      await setDoc(docRef, newConfig);
+
+      console.log('updateBlogPost: Firebase save completed successfully');
+
+      // ONLY update local state after Firebase confirms
+      setConfig(newConfig);
+
+      // Also update localStorage as backup
+      localStorage.setItem('moscow_mix_data_v1', JSON.stringify(newConfig));
+
+      console.log('updateBlogPost: Local state updated, post updated:', post.title);
+    } catch (error) {
+      console.error('updateBlogPost: Firebase save FAILED', error);
+      // DO NOT update local state - the save failed!
+      throw error; // Re-throw so caller can show error to user
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const deleteBlogPost = (id: string) => {
