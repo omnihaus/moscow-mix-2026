@@ -438,7 +438,24 @@ const AdminPanel = () => {
       resetJournalForm();
     } catch (error) {
       console.error('Error saving post:', error);
-      alert('Failed to save post. Please try again.');
+
+      // Provide helpful error message based on error type
+      let errorMessage = 'Failed to save post. ';
+      const errorStr = error instanceof Error ? error.message : String(error);
+
+      if (errorStr.includes('size') || errorStr.includes('too large') || errorStr.includes('1MB')) {
+        errorMessage += 'The post may be too large (images too big). Try reducing image sizes.';
+      } else if (errorStr.includes('permission') || errorStr.includes('denied')) {
+        errorMessage += 'Permission denied. Check Firebase rules.';
+      } else if (errorStr.includes('network') || errorStr.includes('offline')) {
+        errorMessage += 'Network error. Check your internet connection.';
+      } else if (errorStr.includes('quota')) {
+        errorMessage += 'Firebase quota exceeded. Please try again later.';
+      } else {
+        errorMessage += `Error: ${errorStr.substring(0, 100)}`;
+      }
+
+      alert(errorMessage);
     }
   };
 
