@@ -104,7 +104,8 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
           products: firebaseData.products && firebaseData.products.length > 0 ? firebaseData.products : DEFAULT_CONFIG.products,
           blogPosts: firebaseData.blogPosts && firebaseData.blogPosts.length > 0 ? firebaseData.blogPosts : DEFAULT_CONFIG.blogPosts,
           adminPassword: firebaseData.adminPassword || 'admin',
-          passwordHint: firebaseData.passwordHint || 'Default is admin'
+          passwordHint: firebaseData.passwordHint || 'Default is admin',
+          adminUsers: firebaseData.adminUsers && firebaseData.adminUsers.length > 0 ? firebaseData.adminUsers : DEFAULT_CONFIG.adminUsers
         });
       } else {
         // First time run: Upload default data to Firebase so it exists next time
