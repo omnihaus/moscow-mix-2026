@@ -385,7 +385,7 @@ const AdminPanel = () => {
     e.target.value = '';
   };
 
-  const handleSavePost = () => {
+  const handleSavePost = async () => {
     if (!blogTitle) return alert("Title required");
 
     // Validate scheduled date if scheduling
@@ -427,15 +427,19 @@ const AdminPanel = () => {
       'published': 'Post Published Successfully'
     };
 
-    if (editingPostId) {
-      updateBlogPost(newPost);
-      alert(statusMessages[postStatus].replace('Published', 'Updated'));
-    } else {
-      addBlogPost(newPost);
-      alert(statusMessages[postStatus]);
+    try {
+      if (editingPostId) {
+        await updateBlogPost(newPost);
+        alert(statusMessages[postStatus].replace('Published', 'Updated'));
+      } else {
+        await addBlogPost(newPost);
+        alert(statusMessages[postStatus]);
+      }
+      resetJournalForm();
+    } catch (error) {
+      console.error('Error saving post:', error);
+      alert('Failed to save post. Please try again.');
     }
-
-    resetJournalForm();
   };
 
   const handleEditPost = (post: BlogPost) => {
@@ -1675,8 +1679,8 @@ const AdminPanel = () => {
                           <p className="text-stone-500 text-xs">{user.email}</p>
                         </div>
                         <span className={`px-2 py-1 text-[10px] uppercase tracking-widest font-bold rounded ${user.role === 'owner' ? 'bg-amber-900/30 text-amber-400' :
-                            user.role === 'writer' ? 'bg-green-900/30 text-green-400' :
-                              'bg-stone-800 text-stone-400'
+                          user.role === 'writer' ? 'bg-green-900/30 text-green-400' :
+                            'bg-stone-800 text-stone-400'
                           }`}>
                           {user.role === 'writer' ? 'Blog Writer' : user.role}
                         </span>

@@ -35,12 +35,13 @@ interface SiteConfigContextType {
   updateProduct: (product: Product) => void;
   deleteProduct: (id: string) => void;
   reorderProduct: (id: string, direction: 'up' | 'down') => void;
-  addBlogPost: (post: BlogPost) => void;
-  updateBlogPost: (post: BlogPost) => void;
+  addBlogPost: (post: BlogPost) => Promise<void>;
+  updateBlogPost: (post: BlogPost) => Promise<void>;
   deleteBlogPost: (id: string) => void;
   updateStory: (story: BrandStory) => void;
   refreshData: () => Promise<void>;
   isLoading: boolean;
+  isSaving: boolean;
   verifyAdminPassword: (input: string) => boolean;
   changeAdminPassword: (newPass: string, newHint?: string) => void;
   addAdminUser: (user: AdminUser) => void;
@@ -211,20 +212,22 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
     saveToFirebase(newConfig);
   };
 
-  const addBlogPost = (post: BlogPost) => {
+  const addBlogPost = async (post: BlogPost): Promise<void> => {
     const newPost = { ...post, author: post.author || 'Michael B.' };
     const newConfig = { ...config, blogPosts: [newPost, ...config.blogPosts] };
     setConfig(newConfig);
-    saveToFirebase(newConfig);
+    await saveToFirebase(newConfig);
+    console.log('addBlogPost: Save complete, post persisted:', post.title);
   };
 
-  const updateBlogPost = (post: BlogPost) => {
+  const updateBlogPost = async (post: BlogPost): Promise<void> => {
     const newConfig = {
       ...config,
       blogPosts: config.blogPosts.map(p => p.id === post.id ? post : p)
     };
     setConfig(newConfig);
-    saveToFirebase(newConfig);
+    await saveToFirebase(newConfig);
+    console.log('updateBlogPost: Save complete, post updated:', post.title);
   };
 
   const deleteBlogPost = (id: string) => {
@@ -293,6 +296,7 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
       updateStory,
       refreshData: fetchData,
       isLoading,
+      isSaving,
       verifyAdminPassword,
       changeAdminPassword,
       addAdminUser,
