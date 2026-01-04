@@ -89,6 +89,10 @@ const AdminPanel = () => {
     if (matchedUser) {
       setIsAuthenticated(true);
       setCurrentUser(matchedUser);
+      // Writers go directly to Journal tab
+      if (matchedUser.role === 'writer') {
+        setActiveTab('journal');
+      }
       return;
     }
 
@@ -948,27 +952,40 @@ const AdminPanel = () => {
             <p className="text-xs text-stone-500 uppercase tracking-widest mt-1">Admin Panel</p>
           </div>
           <nav className="flex-1 p-4 space-y-2">
-            <button onClick={() => setActiveTab('hero')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${activeTab === 'hero' ? 'bg-stone-800 text-copper-400' : 'text-stone-400 hover:text-white'}`}>
-              <Layout size={18} /> Hero & Logo
-            </button>
-            <button onClick={() => setActiveTab('products')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${activeTab === 'products' ? 'bg-stone-800 text-copper-400' : 'text-stone-400 hover:text-white'}`}>
-              <ShoppingBag size={18} /> Products
-            </button>
+            {/* Writers only see Journal */}
+            {currentUser?.role !== 'writer' && (
+              <button onClick={() => setActiveTab('hero')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${activeTab === 'hero' ? 'bg-stone-800 text-copper-400' : 'text-stone-400 hover:text-white'}`}>
+                <Layout size={18} /> Hero & Logo
+              </button>
+            )}
+            {currentUser?.role !== 'writer' && (
+              <button onClick={() => setActiveTab('products')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${activeTab === 'products' ? 'bg-stone-800 text-copper-400' : 'text-stone-400 hover:text-white'}`}>
+                <ShoppingBag size={18} /> Products
+              </button>
+            )}
             <button onClick={() => setActiveTab('journal')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${activeTab === 'journal' ? 'bg-stone-800 text-copper-400' : 'text-stone-400 hover:text-white'}`}>
               <BookOpen size={18} /> Journal
             </button>
-            <button onClick={() => setActiveTab('story')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${activeTab === 'story' ? 'bg-stone-800 text-copper-400' : 'text-stone-400 hover:text-white'}`}>
-              <Type size={18} /> Our Story
-            </button>
-            <button onClick={() => setActiveTab('assets')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${activeTab === 'assets' ? 'bg-stone-800 text-copper-400' : 'text-stone-400 hover:text-white'}`}>
-              <ImageIcon size={18} /> Global Assets
-            </button>
-            <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${activeTab === 'settings' ? 'bg-stone-800 text-copper-400' : 'text-stone-400 hover:text-white'}`}>
-              <Settings size={18} /> Settings
-            </button>
-            <button onClick={() => setActiveTab('team')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${activeTab === 'team' ? 'bg-stone-800 text-copper-400' : 'text-stone-400 hover:text-white'}`}>
-              <Users size={18} /> Team
-            </button>
+            {currentUser?.role !== 'writer' && (
+              <button onClick={() => setActiveTab('story')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${activeTab === 'story' ? 'bg-stone-800 text-copper-400' : 'text-stone-400 hover:text-white'}`}>
+                <Type size={18} /> Our Story
+              </button>
+            )}
+            {currentUser?.role !== 'writer' && (
+              <button onClick={() => setActiveTab('assets')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${activeTab === 'assets' ? 'bg-stone-800 text-copper-400' : 'text-stone-400 hover:text-white'}`}>
+                <ImageIcon size={18} /> Global Assets
+              </button>
+            )}
+            {currentUser?.role !== 'writer' && (
+              <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${activeTab === 'settings' ? 'bg-stone-800 text-copper-400' : 'text-stone-400 hover:text-white'}`}>
+                <Settings size={18} /> Settings
+              </button>
+            )}
+            {currentUser?.role !== 'writer' && (
+              <button onClick={() => setActiveTab('team')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${activeTab === 'team' ? 'bg-stone-800 text-copper-400' : 'text-stone-400 hover:text-white'}`}>
+                <Users size={18} /> Team
+              </button>
+            )}
           </nav>
 
           <div className="p-4">
@@ -1416,7 +1433,10 @@ const AdminPanel = () => {
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => handleEditPost(post)} className="p-2 text-stone-500 hover:text-white" title="Edit Post"><Edit2 size={16} /></button>
-                        <button onClick={(e) => handleDeletePost(e, post.id)} type="button" className="p-2 text-stone-500 hover:bg-red-900/30 hover:text-red-500 transition-colors rounded relative z-50 cursor-pointer" title="Delete Post"><Trash2 size={16} /></button>
+                        {/* Writers cannot delete posts */}
+                        {currentUser?.role !== 'writer' && (
+                          <button onClick={(e) => handleDeletePost(e, post.id)} type="button" className="p-2 text-stone-500 hover:bg-red-900/30 hover:text-red-500 transition-colors rounded relative z-50 cursor-pointer" title="Delete Post"><Trash2 size={16} /></button>
+                        )}
                       </div>
                     </div>
                   );
@@ -1591,6 +1611,7 @@ const AdminPanel = () => {
                       id="team-new-role"
                       className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none"
                     >
+                      <option value="writer">Blog Writer</option>
                       <option value="admin">Admin</option>
                       <option value="owner">Owner</option>
                     </select>
@@ -1653,9 +1674,11 @@ const AdminPanel = () => {
                           <p className="text-white font-medium">{user.name}</p>
                           <p className="text-stone-500 text-xs">{user.email}</p>
                         </div>
-                        <span className={`px-2 py-1 text-[10px] uppercase tracking-widest font-bold rounded ${user.role === 'owner' ? 'bg-amber-900/30 text-amber-400' : 'bg-stone-800 text-stone-400'
+                        <span className={`px-2 py-1 text-[10px] uppercase tracking-widest font-bold rounded ${user.role === 'owner' ? 'bg-amber-900/30 text-amber-400' :
+                            user.role === 'writer' ? 'bg-green-900/30 text-green-400' :
+                              'bg-stone-800 text-stone-400'
                           }`}>
-                          {user.role}
+                          {user.role === 'writer' ? 'Blog Writer' : user.role}
                         </span>
                       </div>
 

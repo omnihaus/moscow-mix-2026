@@ -78,7 +78,7 @@ export interface AdminUser {
   name: string;
   email: string; // Used as login username
   password: string;
-  role: 'owner' | 'admin';
+  role: 'owner' | 'admin' | 'writer';
   createdAt: string;
 }
 
