@@ -12,11 +12,11 @@ import {
   Sparkles, Save, Bold, Italic, Quote, Link as LinkIcon,
   Settings, ExternalLink, X, Heading1, Heading2, Eraser,
   ArrowUp, ArrowDown, Check, X as XIcon, List, FileText, Video, Eye, EyeOff,
-  Calendar, Clock, Users, User, Mail, Key
+  Calendar, Clock, Users, User, Mail, Key, Cloud
 } from 'lucide-react';
 
 const AdminPanel = () => {
-  const { config, updateHeroText, updateAssets, addProduct, updateProduct, deleteProduct, reorderProduct, addBlogPost, updateBlogPost, deleteBlogPost, updateStory, verifyAdminPassword, changeAdminPassword, addAdminUser, removeAdminUser } = useSiteConfig();
+  const { config, updateHeroText, updateAssets, addProduct, updateProduct, deleteProduct, reorderProduct, addBlogPost, updateBlogPost, deleteBlogPost, updateStory, verifyAdminPassword, changeAdminPassword, addAdminUser, removeAdminUser, forceSyncToCloud } = useSiteConfig();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
@@ -1563,6 +1563,34 @@ const AdminPanel = () => {
                   <p className="text-xs text-stone-600">Required for Journal AI generation features.</p>
                 </div>
                 <button onClick={handleSaveApiKey} className="w-full bg-copper-900/30 text-copper-400 hover:bg-copper-900/50 py-3 px-4 rounded text-sm font-bold border border-copper-900">Save API Key</button>
+              </div>
+
+              {/* Emergency Cloud Sync Section */}
+              <div className="bg-red-900/20 p-8 border border-red-900/50 rounded-lg space-y-6">
+                <h3 className="text-white font-serif text-xl flex items-center gap-2">
+                  <Cloud size={20} className="text-red-400" /> Cloud Sync
+                </h3>
+                <p className="text-stone-400 text-sm">
+                  If your content isn't appearing on other devices, use this to force sync your local data to the cloud.
+                </p>
+                <div className="bg-stone-950 p-4 rounded border border-stone-800 text-sm">
+                  <p className="text-stone-500">Current local data:</p>
+                  <ul className="text-white mt-2 space-y-1">
+                    <li>• <strong>{config.blogPosts?.length || 0}</strong> Journal Posts</li>
+                    <li>• <strong>{config.products?.length || 0}</strong> Products</li>
+                    <li>• <strong>{config.adminUsers?.length || 0}</strong> Team Members</li>
+                  </ul>
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!confirm('This will push ALL your current data to the cloud. Other devices will see this data. Continue?')) return;
+                    const result = await forceSyncToCloud();
+                    alert(result.message);
+                  }}
+                  className="w-full bg-red-700 hover:bg-red-600 text-white py-4 px-4 rounded text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2"
+                >
+                  <Upload size={18} /> Force Sync to Cloud
+                </button>
               </div>
             </div>
           )}

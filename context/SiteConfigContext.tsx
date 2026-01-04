@@ -40,6 +40,7 @@ interface SiteConfigContextType {
   deleteBlogPost: (id: string) => void;
   updateStory: (story: BrandStory) => void;
   refreshData: () => Promise<void>;
+  forceSyncToCloud: () => Promise<{ success: boolean; message: string }>;
   isLoading: boolean;
   isSaving: boolean;
   verifyAdminPassword: (input: string) => boolean;
@@ -353,6 +354,45 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
     saveToFirebase(newConfig);
   };
 
+  // EMERGENCY: Force sync current config to Firebase (bypasses all checks)
+  const forceSyncToCloud = async (): Promise<{ success: boolean; message: string }> => {
+    console.log('FORCE SYNC: Pushing ALL current data to Firebase...');
+    console.log('Current data:', {
+      blogPosts: config.blogPosts?.length || 0,
+      products: config.products?.length || 0,
+      adminUsers: config.adminUsers?.length || 0
+    });
+
+    try {
+      const docRef = doc(db, "moscow_mix", "live_site");
+      await setDoc(docRef, config);
+
+      // Verify the save
+      const verifySnap = await getDoc(docRef);
+      if (verifySnap.exists()) {
+        const verifyData = verifySnap.data() as SiteConfig;
+        const savedPostCount = verifyData.blogPosts?.length || 0;
+        const expectedPostCount = config.blogPosts?.length || 0;
+
+        if (savedPostCount === expectedPostCount) {
+          const message = `SUCCESS! Synced ${expectedPostCount} posts, ${config.products?.length || 0} products to Firebase.`;
+          console.log('FORCE SYNC:', message);
+          return { success: true, message };
+        } else {
+          const message = `PARTIAL: Expected ${expectedPostCount} posts but Firebase shows ${savedPostCount}`;
+          console.error('FORCE SYNC:', message);
+          return { success: false, message };
+        }
+      } else {
+        return { success: false, message: 'Document not found after save!' };
+      }
+    } catch (error) {
+      const message = `ERROR: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      console.error('FORCE SYNC:', message);
+      return { success: false, message };
+    }
+  };
+
   return (
     <SiteConfigContext.Provider value={{
       config,
@@ -368,6 +408,7 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
       deleteBlogPost,
       updateStory,
       refreshData: fetchData,
+      forceSyncToCloud,
       isLoading,
       isSaving,
       verifyAdminPassword,
