@@ -65,7 +65,27 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
 
   // Track when we're saving to prevent fetch from overwriting
   const [isSaving, setIsSaving] = useState(false);
-  const lastSaveTimeRef = React.useRef<number>(0);
+
+  // Use localStorage for last save time so it persists across page refreshes!
+  const LAST_SAVE_KEY = 'moscow_mix_last_save_time';
+  const SAVE_COOLDOWN_MS = 10000; // 10 seconds to allow Firebase propagation
+
+  const getLastSaveTime = (): number => {
+    try {
+      const saved = localStorage.getItem(LAST_SAVE_KEY);
+      return saved ? parseInt(saved, 10) : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const setLastSaveTime = (time: number) => {
+    try {
+      localStorage.setItem(LAST_SAVE_KEY, time.toString());
+    } catch {
+      console.warn('Could not save timestamp to localStorage');
+    }
+  };
 
   // 2. Smart Auto-Save to Local Storage
   useEffect(() => {
@@ -94,10 +114,11 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
       return;
     }
 
-    // Don't fetch if we just saved within the last 3 seconds (prevents overwriting fresh data)
-    const timeSinceLastSave = Date.now() - lastSaveTimeRef.current;
-    if (timeSinceLastSave < 3000 && lastSaveTimeRef.current > 0) {
-      console.log('Firebase sync: Skipping - recent save detected', timeSinceLastSave, 'ms ago');
+    // Don't fetch if we saved recently - use localStorage so this survives page refreshes!
+    const lastSaveTime = getLastSaveTime();
+    const timeSinceLastSave = Date.now() - lastSaveTime;
+    if (timeSinceLastSave < SAVE_COOLDOWN_MS && lastSaveTime > 0) {
+      console.log('Firebase sync: Skipping - recent save detected', timeSinceLastSave, 'ms ago. Using localStorage data.');
       return;
     }
 
@@ -146,10 +167,10 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
   // --- HELPER: Save Full Config to Firebase ---
   const saveToFirebase = async (newConfig: SiteConfig) => {
     setIsSaving(true);
-    lastSaveTimeRef.current = Date.now();
+    setLastSaveTime(Date.now()); // Persist to localStorage so it survives page refresh
     try {
       await setDoc(doc(db, "moscow_mix", "live_site"), newConfig);
-      console.log('Firebase save: Complete');
+      console.log('Firebase save: Complete at', new Date().toISOString());
     } catch (e) {
       console.error("Firebase Save Error:", e);
     } finally {
