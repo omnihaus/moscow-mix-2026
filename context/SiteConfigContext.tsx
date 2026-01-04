@@ -43,6 +43,8 @@ interface SiteConfigContextType {
   isLoading: boolean;
   verifyAdminPassword: (input: string) => boolean;
   changeAdminPassword: (newPass: string, newHint?: string) => void;
+  addAdminUser: (user: AdminUser) => void;
+  removeAdminUser: (userId: string) => void;
 }
 
 const SiteConfigContext = createContext<SiteConfigContextType | undefined>(undefined);
@@ -233,6 +235,26 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
     return input === (config.adminPassword || 'admin');
   };
 
+  const addAdminUser = (user: AdminUser) => {
+    const existingUsers = config.adminUsers || [];
+    const newConfig = {
+      ...config,
+      adminUsers: [...existingUsers, user]
+    };
+    setConfig(newConfig);
+    saveToFirebase(newConfig);
+  };
+
+  const removeAdminUser = (userId: string) => {
+    const existingUsers = config.adminUsers || [];
+    const newConfig = {
+      ...config,
+      adminUsers: existingUsers.filter(u => u.id !== userId)
+    };
+    setConfig(newConfig);
+    saveToFirebase(newConfig);
+  };
+
   return (
     <SiteConfigContext.Provider value={{
       config,
@@ -250,7 +272,9 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
       refreshData: fetchData,
       isLoading,
       verifyAdminPassword,
-      changeAdminPassword
+      changeAdminPassword,
+      addAdminUser,
+      removeAdminUser
     }}>
       {children}
     </SiteConfigContext.Provider>

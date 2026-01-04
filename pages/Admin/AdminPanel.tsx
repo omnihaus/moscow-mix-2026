@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 const AdminPanel = () => {
-  const { config, setConfig, updateHeroText, updateAssets, addProduct, updateProduct, deleteProduct, reorderProduct, addBlogPost, updateBlogPost, deleteBlogPost, updateStory, verifyAdminPassword, changeAdminPassword } = useSiteConfig();
+  const { config, updateHeroText, updateAssets, addProduct, updateProduct, deleteProduct, reorderProduct, addBlogPost, updateBlogPost, deleteBlogPost, updateStory, verifyAdminPassword, changeAdminPassword, addAdminUser, removeAdminUser } = useSiteConfig();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
@@ -1623,10 +1623,7 @@ const AdminPanel = () => {
                       createdAt: new Date().toISOString()
                     };
 
-                    setConfig(prev => ({
-                      ...prev,
-                      adminUsers: [...(prev.adminUsers || []), newUser]
-                    }));
+                    addAdminUser(newUser);
 
                     nameEl.value = '';
                     emailEl.value = '';
@@ -1666,10 +1663,7 @@ const AdminPanel = () => {
                         <button
                           onClick={() => {
                             if (confirm(`Remove ${user.name} from the team?`)) {
-                              setConfig(prev => ({
-                                ...prev,
-                                adminUsers: (prev.adminUsers || []).filter(u => u.id !== user.id)
-                              }));
+                              removeAdminUser(user.id);
                             }
                           }}
                           className="p-2 text-stone-500 hover:text-red-500 transition-colors"
