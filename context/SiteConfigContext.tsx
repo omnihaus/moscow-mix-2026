@@ -189,14 +189,42 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
   }, []);
 
   // --- HELPER: Save Full Config to Firebase ---
-  const saveToFirebase = async (newConfig: SiteConfig) => {
+  const saveToFirebase = async (newConfig: SiteConfig): Promise<void> => {
     setIsSaving(true);
     setLastSaveTime(Date.now()); // Persist to localStorage so it survives page refresh
+
+    const startTime = Date.now();
+    console.log('Firebase save: Starting...', { blogPostCount: newConfig.blogPosts?.length });
+
     try {
-      await setDoc(doc(db, "moscow_mix", "live_site"), newConfig);
-      console.log('Firebase save: Complete at', new Date().toISOString());
+      const docRef = doc(db, "moscow_mix", "live_site");
+      await setDoc(docRef, newConfig);
+
+      const saveTime = Date.now() - startTime;
+      console.log('Firebase save: setDoc completed in', saveTime, 'ms');
+
+      // VERIFICATION: Re-read to confirm data persisted
+      const verifySnap = await getDoc(docRef);
+      if (verifySnap.exists()) {
+        const verifyData = verifySnap.data() as SiteConfig;
+        const savedPostCount = verifyData.blogPosts?.length || 0;
+        const expectedPostCount = newConfig.blogPosts?.length || 0;
+
+        if (savedPostCount === expectedPostCount) {
+          console.log('Firebase save: VERIFIED - Post count matches:', savedPostCount);
+        } else {
+          console.error('Firebase save: MISMATCH! Expected', expectedPostCount, 'posts but Firebase has', savedPostCount);
+          throw new Error(`Save verification failed: expected ${expectedPostCount} posts, got ${savedPostCount}`);
+        }
+      } else {
+        console.error('Firebase save: Document does not exist after save!');
+        throw new Error('Save verification failed: document not found');
+      }
+
     } catch (e) {
       console.error("Firebase Save Error:", e);
+      // Re-throw so callers know the save failed
+      throw e;
     } finally {
       setIsSaving(false);
     }
