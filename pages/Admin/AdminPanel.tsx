@@ -545,18 +545,27 @@ const AdminPanel = () => {
   };
 
   // Uses Google's native Imagen 3 model (requested as 'Nano Banana Pro')
-  const generateImageFromPrompt = async (genAI: GoogleGenerativeAI, prompt: string, modelType: string = 'imagen-3'): Promise<string | null> => {
+  // referenceImages: optional array of base64 image strings to use as product reference
+  const generateImageFromPrompt = async (
+    genAI: GoogleGenerativeAI,
+    prompt: string,
+    modelType: string = 'imagen-3',
+    referenceImages?: string[]
+  ): Promise<string | null> => {
     try {
       console.log(`Generating image with ${modelType} for:`, prompt);
+      if (referenceImages?.length) {
+        console.log(`Using ${referenceImages.length} reference image(s) for subject matching`);
+      }
       const apiKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_API_KEY;
 
-      // OPTION 1: FLUX (via Pollinations)
+      // OPTION 1: FLUX (via Pollinations) - no reference support
       if (modelType === 'flux') {
         const enhancedPrompt = encodeURIComponent(prompt + " photorealistic, cinematic lighting, 8k uhd, highly detailed, professional photography");
         return `https://pollinations.ai/p/${enhancedPrompt}?width=1024&height=1024&seed=${Math.floor(Math.random() * 1000)}&model=flux`;
       }
 
-      // OPTION 2: TURBO (via Pollinations)
+      // OPTION 2: TURBO (via Pollinations) - no reference support
       if (modelType === 'turbo') {
         const enhancedPrompt = encodeURIComponent(prompt);
         return `https://pollinations.ai/p/${enhancedPrompt}?width=1024&height=1024&seed=${Math.floor(Math.random() * 1000)}&model=turbo`;
@@ -586,32 +595,54 @@ const AdminPanel = () => {
         return null;
       }
 
-      // OPTION 4: EXPLICIT IMAGEN 4 ULTRA
+      // OPTION 4: EXPLICIT IMAGEN 4 ULTRA with reference image support
       if (modelType === 'imagen-4.0-ultra-generate-001') {
-        console.log("Using Nano Banana Pro (Imagen 4 Ultra)...");
+        console.log("Using Nano Banana Pro (Imagen 4 Ultra) with reference images...");
+
+        // Build request body with reference images if provided
+        const requestBody: any = {
+          instances: [{
+            prompt: prompt + ", photorealistic, 8k, no text, no watermark, match the reference product exactly"
+          }],
+          parameters: { sampleCount: 1 }
+        };
+
+        // Add reference images for subject matching if provided
+        if (referenceImages && referenceImages.length > 0) {
+          requestBody.instances[0].referenceImages = referenceImages.map((base64, index) => ({
+            referenceId: index + 1,
+            referenceType: "REFERENCE_TYPE_SUBJECT",
+            referenceImage: {
+              bytesBase64Encoded: base64
+            }
+          }));
+          // Update prompt to reference the subject
+          requestBody.instances[0].prompt = `Using subject reference 1 for the exact product appearance: ${prompt}, photorealistic, 8k, no text, no watermark, match the product style and design exactly from the reference`;
+        }
+
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-ultra-generate-001:predict?key=${apiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            instances: [{ prompt: prompt + ", photorealistic, 8k, no text, no watermark" }],
-            parameters: { sampleCount: 1 }
-          })
+          body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
-          console.log("Using Nano Banana Pro (Imagen 4 Ultra)...");
+          const err = await response.text();
+          console.error("Imagen 4 Ultra error:", err);
+          // Fallback without reference images
+          console.log("Retrying without reference images...");
           const retryResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-ultra-generate-001:predict?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              instances: [{ prompt: prompt + ", photorealistic, 8k, no text, no watermark, (NO TEXT ON BOTTLES)" }],
+              instances: [{ prompt: prompt + ", photorealistic, 8k, no text, no watermark" }],
               parameters: { sampleCount: 1 }
             })
           });
 
           if (!retryResponse.ok) {
-            const err = await retryResponse.text();
-            throw new Error(err);
+            const retryErr = await retryResponse.text();
+            throw new Error(retryErr);
           }
           const data = await retryResponse.json();
           const base64Image = data.predictions?.[0]?.bytesBase64Encoded;
@@ -619,15 +650,13 @@ const AdminPanel = () => {
           return null;
         }
 
-        // If first response was OK, process it
         const data = await response.json();
         const base64Image = data.predictions?.[0]?.bytesBase64Encoded;
         if (base64Image) return `data:image/jpeg;base64,${base64Image}`;
         return null;
       }
 
-      // OPTION 5: GOOGLE IMAGEN 3.0 (Discovery Fallback/Default)
-      // STEP 1: Discovery - Find the exact Model ID allowed for this key
+      // OPTION 5: GOOGLE IMAGEN 3.0 with reference image support (Discovery Fallback/Default)
       console.log("Auto-Discovering correct Imagen model ID...");
       const listResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
       if (!listResp.ok) {
@@ -635,24 +664,57 @@ const AdminPanel = () => {
       }
       const listData = await listResp.json();
       const models = listData.models || [];
-      // Look for any model with 'imagen' in the name
       const imagenModel = models.find((m: any) => m.name.includes('imagen') && m.supportedGenerationMethods?.includes('predict'));
 
       const targetModel = imagenModel ? imagenModel.name.replace('models/', '') : 'imagen-3.0-generate-001';
       console.log("Selected Model:", targetModel);
 
-      // STEP 2: Generate
+      // Build request body with reference images if provided
+      const requestBody: any = {
+        instances: [{ prompt: prompt + ", photorealistic, 8k, no text, no watermark" }],
+        parameters: { sampleCount: 1 }
+      };
+
+      // Add reference images for subject matching if provided
+      if (referenceImages && referenceImages.length > 0) {
+        requestBody.instances[0].referenceImages = referenceImages.map((base64, index) => ({
+          referenceId: index + 1,
+          referenceType: "REFERENCE_TYPE_SUBJECT",
+          referenceImage: {
+            bytesBase64Encoded: base64
+          }
+        }));
+        requestBody.instances[0].prompt = `Using subject reference 1 for the exact product appearance: ${prompt}, photorealistic, 8k, no text, no watermark, match the product exactly`;
+      }
+
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:predict?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instances: [{ prompt: prompt + ", photorealistic, 8k, no text, no watermark" }],
-          parameters: { sampleCount: 1 }
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
         const err = await response.text();
+        console.error("Imagen error with references:", err);
+        // Retry without reference images as fallback
+        if (referenceImages && referenceImages.length > 0) {
+          console.log("Retrying without reference images...");
+          const fallbackResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:predict?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              instances: [{ prompt: prompt + ", photorealistic, 8k, no text, no watermark" }],
+              parameters: { sampleCount: 1 }
+            })
+          });
+          if (!fallbackResponse.ok) {
+            throw new Error(err);
+          }
+          const fallbackData = await fallbackResponse.json();
+          const fallbackImage = fallbackData.predictions?.[0]?.bytesBase64Encoded;
+          if (fallbackImage) return `data:image/jpeg;base64,${fallbackImage}`;
+          return null;
+        }
         throw new Error(err);
       }
 
@@ -821,7 +883,7 @@ const AdminPanel = () => {
       // 2. Generate Cover Image
       setGenerationStatus('Generating & Uploading Cover Image...');
       const coverPrompt = data.coverImagePrompt || `A professional, magazine-quality photo for a blog post about: ${blogTitle}. ${blogContentDirection || ''}. Photorealistic, 8k.`;
-      const coverUrlRaw = await generateImageFromPrompt(genAI, coverPrompt, imageGenModel);
+      const coverUrlRaw = await generateImageFromPrompt(genAI, coverPrompt, imageGenModel, targetProductBase64s);
 
       let coverUrl = "";
       if (coverUrlRaw) {
@@ -848,7 +910,7 @@ const AdminPanel = () => {
         const imgPrompt = match[1]; // The prompt text
 
         setGenerationStatus(`Creating image: ${imgPrompt.substring(0, 20)}...`);
-        const imgBase64 = await generateImageFromPrompt(genAI, imgPrompt, imageGenModel);
+        const imgBase64 = await generateImageFromPrompt(genAI, imgPrompt, imageGenModel, targetProductBase64s);
 
         if (imgBase64) {
           let imageUrl = await uploadBase64ToFirebase(imgBase64, 'blog-content');
