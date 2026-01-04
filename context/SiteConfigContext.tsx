@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { SiteConfig, Product, BlogPost, SiteAssets, BrandStory } from '../types';
+import { SiteConfig, Product, BlogPost, SiteAssets, BrandStory, AdminUser } from '../types';
 import { PRODUCTS, ASSETS, BLOG_POSTS, DEFAULT_STORY } from '../constants';
 import { db } from '../firebase.ts';
 import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
@@ -12,8 +12,18 @@ const DEFAULT_CONFIG: SiteConfig = {
   products: PRODUCTS,
   blogPosts: BLOG_POSTS,
   story: DEFAULT_STORY,
-  adminPassword: 'admin',
-  passwordHint: 'Default is admin'
+  adminPassword: 'admin', // Legacy - kept for backward compatibility
+  passwordHint: 'Default is admin',
+  adminUsers: [
+    {
+      id: 'admin-default',
+      name: 'Admin',
+      email: 'admin',
+      password: 'admin',
+      role: 'owner',
+      createdAt: new Date().toISOString()
+    }
+  ]
 };
 
 interface SiteConfigContextType {

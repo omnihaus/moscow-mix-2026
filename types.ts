@@ -73,6 +73,15 @@ export interface BrandStory {
   heroImage?: string;
 }
 
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string; // Used as login username
+  password: string;
+  role: 'owner' | 'admin';
+  createdAt: string;
+}
+
 export interface SiteConfig {
   heroHeadline: string;
   heroSubheadline: string;
@@ -80,6 +89,7 @@ export interface SiteConfig {
   products: Product[];
   blogPosts: BlogPost[];
   story: BrandStory;
-  adminPassword?: string; // Added for cloud persistence
+  adminPassword?: string; // Legacy - kept for backward compatibility
   passwordHint?: string;
+  adminUsers?: AdminUser[]; // New multi-user system
 }

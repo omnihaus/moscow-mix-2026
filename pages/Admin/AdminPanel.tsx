@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSiteConfig } from '../../context/SiteConfigContext';
-import { Product, BlogPost, ProductCategory } from '../../types';
+import { Product, BlogPost, ProductCategory, AdminUser } from '../../types';
 import { storage } from '../../firebase';
 // FIXED: Import storage functions ONLY from firebase/storage
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -12,14 +12,16 @@ import {
   Sparkles, Save, Bold, Italic, Quote, Link as LinkIcon,
   Settings, ExternalLink, X, Heading1, Heading2, Eraser,
   ArrowUp, ArrowDown, Check, X as XIcon, List, FileText, Video, Eye, EyeOff,
-  Calendar, Clock
+  Calendar, Clock, Users, User, Mail, Key
 } from 'lucide-react';
 
 const AdminPanel = () => {
-  const { config, updateHeroText, updateAssets, addProduct, updateProduct, deleteProduct, reorderProduct, addBlogPost, updateBlogPost, deleteBlogPost, updateStory, verifyAdminPassword, changeAdminPassword } = useSiteConfig();
+  const { config, setConfig, updateHeroText, updateAssets, addProduct, updateProduct, deleteProduct, reorderProduct, addBlogPost, updateBlogPost, deleteBlogPost, updateStory, verifyAdminPassword, changeAdminPassword } = useSiteConfig();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
-  const [activeTab, setActiveTab] = useState<'hero' | 'products' | 'journal' | 'story' | 'assets' | 'settings'>('hero');
+  const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
+  const [activeTab, setActiveTab] = useState<'hero' | 'products' | 'journal' | 'story' | 'assets' | 'settings' | 'team'>('hero');
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
 
@@ -75,11 +77,36 @@ const AdminPanel = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (verifyAdminPassword(passwordInput)) {
+
+    // Get admin users (with fallback to empty array)
+    const adminUsers = config.adminUsers || [];
+
+    // Check against adminUsers first
+    const matchedUser = adminUsers.find(
+      user => user.email.toLowerCase() === loginEmail.toLowerCase() && user.password === passwordInput
+    );
+
+    if (matchedUser) {
       setIsAuthenticated(true);
-    } else {
-      alert('Incorrect Password');
+      setCurrentUser(matchedUser);
+      return;
     }
+
+    // Fallback: Check legacy single password (for backward compatibility)
+    if (loginEmail.toLowerCase() === 'admin' && verifyAdminPassword(passwordInput)) {
+      setIsAuthenticated(true);
+      setCurrentUser({
+        id: 'legacy-admin',
+        name: 'Admin',
+        email: 'admin',
+        password: '',
+        role: 'owner',
+        createdAt: ''
+      });
+      return;
+    }
+
+    alert('Invalid email or password');
   };
 
   const handleSaveApiKey = () => {
@@ -845,11 +872,33 @@ const AdminPanel = () => {
             <Lock className="text-copper-500" size={48} />
           </div>
           <h1 className="text-2xl font-serif text-white text-center mb-8">Admin Access</h1>
-          <input
-            type="password" placeholder="Enter Password"
-            className="w-full bg-stone-950 border border-stone-800 p-4 text-white mb-6 focus:border-copper-500 outline-none"
-            value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)}
-          />
+
+          {/* Email/Username Field */}
+          <div className="relative mb-4">
+            <input
+              type="text"
+              placeholder="Email or Username"
+              className="w-full bg-stone-950 border border-stone-800 p-4 pl-12 text-white focus:border-copper-500 outline-none"
+              value={loginEmail}
+              onChange={(e) => setLoginEmail(e.target.value)}
+              autoComplete="username"
+            />
+            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-600" size={18} />
+          </div>
+
+          {/* Password Field */}
+          <div className="relative mb-6">
+            <input
+              type="password"
+              placeholder="Password"
+              className="w-full bg-stone-950 border border-stone-800 p-4 pl-12 text-white focus:border-copper-500 outline-none"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              autoComplete="current-password"
+            />
+            <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-600" size={18} />
+          </div>
+
           <button className="w-full bg-copper-600 hover:bg-copper-500 text-white font-bold py-4 uppercase tracking-widest transition-colors">Login</button>
 
           <button type="button" onClick={() => setShowHint(!showHint)} className="w-full text-center text-xs text-stone-500 hover:text-copper-400 mt-4 underline">
@@ -858,7 +907,7 @@ const AdminPanel = () => {
 
           {showHint && (
             <div className="mt-2 p-3 bg-stone-800 rounded border border-stone-700 text-center animate-fade-in">
-              <p className="text-stone-400 text-xs">Hint: <span className="text-white font-bold tracking-wide">{(config as any).passwordHint || "No hint set"}</span></p>
+              <p className="text-stone-400 text-xs">Default: <span className="text-white font-bold tracking-wide">admin / admin</span></p>
             </div>
           )}
         </form>
@@ -916,6 +965,9 @@ const AdminPanel = () => {
             </button>
             <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${activeTab === 'settings' ? 'bg-stone-800 text-copper-400' : 'text-stone-400 hover:text-white'}`}>
               <Settings size={18} /> Settings
+            </button>
+            <button onClick={() => setActiveTab('team')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors ${activeTab === 'team' ? 'bg-stone-800 text-copper-400' : 'text-stone-400 hover:text-white'}`}>
+              <Users size={18} /> Team
             </button>
           </nav>
 
@@ -1487,6 +1539,152 @@ const AdminPanel = () => {
                   <p className="text-xs text-stone-600">Required for Journal AI generation features.</p>
                 </div>
                 <button onClick={handleSaveApiKey} className="w-full bg-copper-900/30 text-copper-400 hover:bg-copper-900/50 py-3 px-4 rounded text-sm font-bold border border-copper-900">Save API Key</button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'team' && (
+            <div className="max-w-3xl mx-auto space-y-8 animate-fade-in">
+              <div className="flex justify-between items-center">
+                <h1 className="text-3xl font-serif text-white">Team Management</h1>
+                <span className="text-xs text-stone-500 uppercase tracking-widest">
+                  Logged in as: <span className="text-copper-400">{currentUser?.name || 'Admin'}</span>
+                </span>
+              </div>
+
+              {/* Add New Team Member */}
+              <div className="bg-stone-900 p-8 border border-stone-800 rounded-lg space-y-6">
+                <h3 className="text-white font-serif text-xl flex items-center gap-2">
+                  <Plus size={20} className="text-copper-500" /> Add Team Member
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">Name</label>
+                    <input
+                      type="text"
+                      id="team-new-name"
+                      placeholder="John Doe"
+                      className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">Email / Username</label>
+                    <input
+                      type="text"
+                      id="team-new-email"
+                      placeholder="john@example.com"
+                      className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">Password</label>
+                    <input
+                      type="text"
+                      id="team-new-password"
+                      placeholder="Create a password"
+                      className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">Role</label>
+                    <select
+                      id="team-new-role"
+                      className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none"
+                    >
+                      <option value="admin">Admin</option>
+                      <option value="owner">Owner</option>
+                    </select>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const nameEl = document.getElementById('team-new-name') as HTMLInputElement;
+                    const emailEl = document.getElementById('team-new-email') as HTMLInputElement;
+                    const passwordEl = document.getElementById('team-new-password') as HTMLInputElement;
+                    const roleEl = document.getElementById('team-new-role') as HTMLSelectElement;
+
+                    if (!nameEl.value || !emailEl.value || !passwordEl.value) {
+                      alert('Please fill in all fields');
+                      return;
+                    }
+
+                    const existingUsers = config.adminUsers || [];
+                    if (existingUsers.some(u => u.email.toLowerCase() === emailEl.value.toLowerCase())) {
+                      alert('A user with this email already exists');
+                      return;
+                    }
+
+                    const newUser: AdminUser = {
+                      id: `admin-${Date.now()}`,
+                      name: nameEl.value,
+                      email: emailEl.value,
+                      password: passwordEl.value,
+                      role: roleEl.value as 'admin' | 'owner',
+                      createdAt: new Date().toISOString()
+                    };
+
+                    setConfig(prev => ({
+                      ...prev,
+                      adminUsers: [...(prev.adminUsers || []), newUser]
+                    }));
+
+                    nameEl.value = '';
+                    emailEl.value = '';
+                    passwordEl.value = '';
+                    alert('Team member added successfully!');
+                  }}
+                  className="w-full bg-copper-600 hover:bg-copper-500 text-white py-3 px-4 rounded text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2"
+                >
+                  <Plus size={16} /> Add Team Member
+                </button>
+              </div>
+
+              {/* Team Members List */}
+              <div className="bg-stone-900 p-8 border border-stone-800 rounded-lg space-y-6">
+                <h3 className="text-white font-serif text-xl flex items-center gap-2">
+                  <Users size={20} className="text-copper-500" /> Current Team Members
+                </h3>
+
+                <div className="space-y-3">
+                  {(config.adminUsers || []).map(user => (
+                    <div key={user.id} className="flex items-center justify-between p-4 bg-stone-950 border border-stone-800 rounded">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-copper-900/30 rounded-full flex items-center justify-center">
+                          <User size={18} className="text-copper-400" />
+                        </div>
+                        <div>
+                          <p className="text-white font-medium">{user.name}</p>
+                          <p className="text-stone-500 text-xs">{user.email}</p>
+                        </div>
+                        <span className={`px-2 py-1 text-[10px] uppercase tracking-widest font-bold rounded ${user.role === 'owner' ? 'bg-amber-900/30 text-amber-400' : 'bg-stone-800 text-stone-400'
+                          }`}>
+                          {user.role}
+                        </span>
+                      </div>
+
+                      {user.id !== 'admin-default' && user.id !== currentUser?.id && (
+                        <button
+                          onClick={() => {
+                            if (confirm(`Remove ${user.name} from the team?`)) {
+                              setConfig(prev => ({
+                                ...prev,
+                                adminUsers: (prev.adminUsers || []).filter(u => u.id !== user.id)
+                              }));
+                            }
+                          }}
+                          className="p-2 text-stone-500 hover:text-red-500 transition-colors"
+                          title="Remove team member"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+
+                  {(!config.adminUsers || config.adminUsers.length === 0) && (
+                    <p className="text-stone-500 text-center py-8">No team members yet. Add one above.</p>
+                  )}
+                </div>
               </div>
             </div>
           )}
