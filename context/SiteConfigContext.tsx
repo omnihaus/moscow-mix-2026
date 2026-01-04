@@ -134,34 +134,39 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
         // Get current local state for comparison
         const localPosts = config.blogPosts || [];
         const firebasePosts = firebaseData.blogPosts || [];
+        const timeSinceLastSave = Date.now() - getLastSaveTime();
 
         console.log('Firebase sync: Comparing data', {
           localPosts: localPosts.length,
           firebasePosts: firebasePosts.length,
-          timeSinceLastSave: Date.now() - getLastSaveTime()
+          timeSinceLastSave,
+          isWithinCooldown: timeSinceLastSave < SAVE_COOLDOWN_MS
         });
 
-        // CRITICAL: If local has MORE posts than Firebase, our save hasn't propagated yet
-        // Don't overwrite local data with stale Firebase data!
-        if (localPosts.length > firebasePosts.length) {
-          console.log('Firebase sync: LOCAL has MORE posts than Firebase - keeping local data (save not propagated yet)');
-          setIsLoading(false);
-          return;
+        // ONLY protect local data if we're within the cooldown window (recently saved)
+        // This prevents the race condition where Firebase returns stale data right after a save
+        // But allows fresh visitors (no recent save) to always get Firebase data
+        if (timeSinceLastSave < SAVE_COOLDOWN_MS && getLastSaveTime() > 0) {
+          // We recently saved - check if Firebase has our data yet
+          if (localPosts.length > firebasePosts.length) {
+            console.log('Firebase sync: Within cooldown, local has more posts - keeping local data');
+            setIsLoading(false);
+            return;
+          }
+
+          // Check if local has posts Firebase doesn't have yet
+          const firebasePostIds = new Set(firebasePosts.map(p => p.id));
+          const localOnlyPosts = localPosts.filter(p => !firebasePostIds.has(p.id));
+          if (localOnlyPosts.length > 0) {
+            console.log('Firebase sync: Within cooldown, local has unpropagated posts - keeping local data', localOnlyPosts.map(p => p.title));
+            setIsLoading(false);
+            return;
+          }
         }
 
-        // Also check if local has posts that Firebase doesn't have (by ID)
-        const firebasePostIds = new Set(firebasePosts.map(p => p.id));
-        const localOnlyPosts = localPosts.filter(p => !firebasePostIds.has(p.id));
-        if (localOnlyPosts.length > 0) {
-          console.log('Firebase sync: Local has posts not in Firebase yet - keeping local data', localOnlyPosts.map(p => p.title));
-          setIsLoading(false);
-          return;
-        }
-
+        // Use Firebase data as the source of truth
         console.log('Firebase sync: Using Firebase as source of truth');
 
-        // ALWAYS use Firebase data as the source of truth
-        // This ensures all devices see the same content
         setConfig({
           heroHeadline: firebaseData.heroHeadline || DEFAULT_CONFIG.heroHeadline,
           heroSubheadline: firebaseData.heroSubheadline || DEFAULT_CONFIG.heroSubheadline,
