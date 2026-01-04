@@ -693,7 +693,7 @@ const AdminPanel = () => {
       const productsContext = config.products.map(p => `${p.name} (ID: ${p.id})`).join(', ');
 
       const prompt = `
-        You are an expert luxury lifestyle editor for 'Moscow Mix'.
+        You are an expert luxury lifestyle editor for 'Moscow Mix' - a premium brand selling pure copper barware products and natural fire starters.
         
         TASK:
         1. FIRST, analyze the attached product image(s). Extract an EXTREMELY DETAILED "VISUAL DNA" description. This is CRITICAL - the image generator cannot see the image, so your description must be perfect:
@@ -718,10 +718,18 @@ const AdminPanel = () => {
            
         2. Create a "PRODUCT DESCRIPTION STRING" that can be injected into image prompts. Format: "hammered copper mug with [exact handle description], [exact body description], [exact color]"
         
-        3. THEN, write a professional, SEO-optimized blog post (1500-1800 words) based on the title: "${blogTitle}".
+        3. DEEPLY ANALYZE THE CONTENT THEME:
+           Before writing, think deeply about:
+           - What is the CORE MESSAGE of "${blogTitle}"?
+           - What EMOTIONS should readers feel?
+           - What LIFESTYLE does this article promote?
+           - How can images REINFORCE the narrative?
+           - How can we SUBTLY PROMOTE Moscow Mix copper barware and fire starters?
+        
+        4. THEN, write a professional, SEO-optimized blog post (1500-1800 words) based on the title: "${blogTitle}".
         
         CONTEXT:
-        - Brand: High-end copper drinkware & natural fire starters.
+        - Brand: Moscow Mix - High-end pure copper drinkware & natural fire starters.
         - Target Product to Weave In: "${targetProduct || 'Our premium Copper Collection'}".
         - Available Products for linking: ${productsContext}.
         ${blogContentDirection ? `- SPECIFIC DIRECTION FROM EDITOR: "${blogContentDirection}"` : ""}
@@ -735,34 +743,57 @@ const AdminPanel = () => {
         2. FORMAT:
            - Use semantic HTML (<h2>, 3-4 sentences per paragraph, <h3> for subsections).
            - Do NOT use markdown. Return raw HTML.
-         3. IMAGES:
-            - You MUST insert exactly 2 image placeholders within the HTML content at logical section breaks to break up the text.
-            - Use this EXACT format (do not use markdown images): <div class="image-placeholder" data-prompt="Detailed visual description of the image"></div>
-            - **CRITICAL IMAGE PROMPT RULES**:
-              ${productVisualDesc ? `
-              **ADMIN HAS PROVIDED EXACT PRODUCT DESCRIPTION - USE THIS VERBATIM IN ALL IMAGE PROMPTS:**
-              "${productVisualDesc}"
-              
-              Every image prompt MUST start with or prominently include this exact description. Do NOT deviate from it. Do NOT add brass handles if it says copper. Do NOT change shapes or colors.
-              ` : `
-              Analyze the product images and create accurate prompts. The handle style is critical - match it exactly.
-              `}
-              ${coverImgDir ? `* Cover Image: Use this exact direction: "${coverImgDir}"` : '* Cover Image: Must feature the target product prominently.'}
-              ${inlineImg1Dir ? `* Inline Image 1: Use this exact direction: "${inlineImg1Dir}"` : '* Inline Image 1: Must be contextually relevant to the surrounding paragraph content.'}
-              ${inlineImg2Dir ? `* Inline Image 2: Use this exact direction: "${inlineImg2Dir}"` : '* Inline Image 2: Must be contextually relevant to the surrounding paragraph content.'}
-              
+         3. IMAGES - **CRITICAL REQUIREMENTS**:
+            - You MUST insert exactly 2 image placeholders within the HTML content at logical section breaks.
+            - Use this EXACT format: <div class="image-placeholder" data-prompt="Detailed visual description"></div>
+            
+            **MANDATORY IMAGE REQUIREMENTS FOR MOSCOW MIX:**
+            
+            ${productVisualDesc ? `
+            **ADMIN HAS PROVIDED EXACT PRODUCT DESCRIPTION - USE THIS VERBATIM IN ALL IMAGE PROMPTS:**
+            "${productVisualDesc}"
+            
+            Every image prompt MUST prominently include this exact product description. Do NOT deviate from it.
+            ` : `
+            Analyze the product images and create accurate prompts. Match the product appearance EXACTLY.
+            `}
+            
+            **COVER IMAGE (MANDATORY):**
+            - MUST feature a REAL PERSON (man or woman, diverse representation encouraged)
+            - Person should EMBODY the lifestyle/emotion of the article
+            - Person should be INTERACTING with the Moscow Mix product (holding mug, enjoying drink, gathered around fire, etc.)
+            - Setting should VISUALLY SUMMARIZE the article's message
+            - Think: "What single image makes someone want to read this article?"
+            ${coverImgDir ? `- SPECIFIC DIRECTION: "${coverImgDir}"` : ''}
+            
+            **INLINE IMAGE 1 (MANDATORY - MUST INCLUDE HAPPY PERSON):**
+            - MUST feature a HAPPY person (genuine smile, relaxed, enjoying the moment)
+            - Person should be engaged with the product or activity described in surrounding text
+            - Should feel like authentic lifestyle photography, not staged
+            ${inlineImg1Dir ? `- SPECIFIC DIRECTION: "${inlineImg1Dir}"` : '- Must be contextually relevant to the surrounding paragraph content.'}
+            
+            **INLINE IMAGE 2:**
+            - Can be product-focused or include people
+            - Should be contextually relevant to surrounding paragraph content
+            - Should subtly reinforce Moscow Mix brand lifestyle
+            ${inlineImg2Dir ? `- SPECIFIC DIRECTION: "${inlineImg2Dir}"` : ''}
+            
          4. OUTPUT:
             - Return ONLY a valid JSON object.
            {
              "visualDNA": "Your detailed visual DNA analysis here",
              "productDescriptionString": "hammered copper Moscow Mule mug with curved flowing copper handle matching the body color, barrel-shaped body with small hammered dents, polished rose-gold copper finish",
+             "contentThemeAnalysis": "Brief analysis of the article's core message, emotions, and how images will reinforce it",
              "excerpt": "Engaging summary (150 chars)",
              "content": "Full HTML body...",
              "slug": "seo-friendly-url",
              "tags": ["tag1", "tag2"],
              "metaDescription": "SEO meta description",
-             "coverImagePrompt": "A highly descriptive prompt that INCLUDES THE FULL PRODUCT DESCRIPTION STRING and setting",
-             "inlineImagePrompts": ["Prompt with FULL PRODUCT DESCRIPTION STRING and context 1", "Prompt with FULL PRODUCT DESCRIPTION STRING and context 2"]
+             "coverImagePrompt": "A [ethnicity] [man/woman] in their [age]s, [specific action with product], [emotion/expression], holding [EXACT PRODUCT DESCRIPTION STRING], in [setting that embodies article theme], warm natural lighting, photorealistic, magazine editorial quality, 8k",
+             "inlineImagePrompts": [
+               "A happy [man/woman], genuinely smiling, [action relevant to paragraph], with [EXACT PRODUCT DESCRIPTION STRING] visible, [lifestyle setting], photorealistic, candid lifestyle photography, 8k",
+               "Second inline image prompt with product and context"
+             ]
            }
       `;
 
