@@ -386,23 +386,39 @@ const AdminPanel = () => {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `You are a content strategist for Moscow Mix, a premium brand selling:
-1. Pure copper barware (Moscow Mule mugs, cups, pitchers, barware sets)
-2. Natural fire starters (wood wool firelighters, fatwood)
+              text: `You are an expert content strategist for Moscow Mix, a premium brand.
 
-Generate 3 UNIQUE blog post ideas. For EACH idea provide these 5 fields:
-- title: SEO blog title (50-70 chars)
-- contentDirection: Content direction (2-3 sentences)
-- targetProduct: Product to feature (e.g. "16oz Copper Moscow Mule Mug")
-- coverImageDirection: Cover image direction (include a person)
-- inlineImage1Direction: Inline image direction (happy person using product)
+PRODUCTS:
+- Pure copper Moscow Mule mugs (hammered, smooth, various sizes)
+- Copper barware sets (pitchers, cups, shot glasses)
+- Natural fire starters (wood wool firelighters, fatwood kindling)
 
-Return ONLY a JSON array with 3 objects. No other text.`
+GENERATE 3 COMPLETELY DIFFERENT blog post ideas. CRITICAL: Each idea MUST:
+1. Target a DIFFERENT search intent (informational, commercial, lifestyle)
+2. Use a DIFFERENT title format (how-to, listicle, story, guide, vs comparison)
+3. Appeal to a DIFFERENT audience segment
+
+KEYWORD THEMES TO ROTATE BETWEEN (use different ones for each post):
+- Cocktail recipes, mixology, bartending, happy hour
+- Camping, outdoor cooking, fire starting, survival
+- Home entertaining, hosting, party planning
+- Gift guides, wedding registry, housewarming
+- Health benefits of copper, copper care, patina
+- Seasonal themes (summer drinks, winter fires, holiday hosting)
+
+For EACH idea provide exactly these 5 fields:
+- title: Unique SEO title 50-70 chars (vary formats: "How to...", "X Best...", "Why...", "The Ultimate...", "X vs Y")
+- contentDirection: 2-3 sentences describing unique angle and value
+- targetProduct: Specific product (alternate between copper barware and fire starters)
+- coverImageDirection: Vivid scene with a person embodying the content
+- inlineImage1Direction: Action shot of happy person using the product
+
+Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
             }]
           }],
           generationConfig: {
-            temperature: 0.8,
-            maxOutputTokens: 1500,
+            temperature: 1.0,
+            maxOutputTokens: 2000,
             responseMimeType: "application/json"
           }
         })
