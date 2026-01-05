@@ -36,7 +36,7 @@ const AdminPanel = () => {
   const [heroSub, setHeroSub] = useState(config.heroSubheadline);
 
   // AI Configuration
-  const [imageGenModel, setImageGenModel] = useState<'nano-banana-pro' | 'imagen-3' | 'imagen-4.0-ultra-generate-001' | 'flux' | 'turbo' | 'custom'>('nano-banana-pro');
+  const [imageGenModel, setImageGenModel] = useState<'nano-banana-pro' | 'nano-banana-flash' | 'imagen-3' | 'imagen-4.0-ultra-generate-001' | 'flux' | 'turbo' | 'custom'>('nano-banana-pro');
   const [customModelId, setCustomModelId] = useState('');
 
   // Refs
@@ -630,6 +630,59 @@ const AdminPanel = () => {
         }
 
         console.warn("Nano Banana Pro: No image in response, parts:", parts);
+        return null;
+      }
+
+      // OPTION 0.5: NANO BANANA 2.5 FLASH (gemini-2.5-flash-image-preview) - Fast & Affordable
+      // Uses native Gemini generateContent API with reference images - faster than Pro
+      if (modelType === 'nano-banana-flash' || modelType === 'gemini-2.5-flash-image-preview') {
+        console.log("Using Nano Banana 2.5 Flash with reference images...");
+
+        // Build contents array with prompt and reference images
+        const contents: any[] = [{ text: prompt + ". Match the product appearance exactly from the reference images provided. Photorealistic, professional photography, 8k quality." }];
+
+        // Add reference images as inlineData in the contents array
+        if (referenceImages && referenceImages.length > 0) {
+          console.log(`Including ${referenceImages.length} product reference image(s) for exact matching`);
+          referenceImages.forEach((base64) => {
+            contents.push({
+              inlineData: {
+                mimeType: "image/jpeg",
+                data: base64
+              }
+            });
+          });
+        }
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: contents }],
+            generationConfig: {
+              responseModalities: ["TEXT", "IMAGE"]
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const err = await response.text();
+          console.error("Nano Banana 2.5 Flash error:", err);
+          throw new Error(`Nano Banana 2.5 Flash failed: ${err}`);
+        }
+
+        const data = await response.json();
+
+        // Extract image from response parts
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        for (const part of parts) {
+          if (part.inlineData) {
+            console.log("Nano Banana 2.5 Flash: Generated image successfully!");
+            return `data:image/${part.inlineData.mimeType?.split('/')[1] || 'png'};base64,${part.inlineData.data}`;
+          }
+        }
+
+        console.warn("Nano Banana 2.5 Flash: No image in response, parts:", parts);
         return null;
       }
 
@@ -1364,7 +1417,8 @@ const AdminPanel = () => {
                       onChange={(e) => setImageGenModel(e.target.value as any)}
                       className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none"
                     >
-                      <option value="nano-banana-pro">🍌 Nano Banana Pro (Best for Product Matching)</option>
+                      <option value="nano-banana-pro">🍌 Nano Banana Pro (Best Quality)</option>
+                      <option value="nano-banana-flash">⚡ Nano Banana 2.5 Flash (Fast & Affordable)</option>
                       <option value="imagen-3">Google Imagen 3.0 (Standard)</option>
                       <option value="imagen-4.0-ultra-generate-001">Imagen 4 Ultra</option>
                       <option value="flux">Flux (Text Friendly)</option>
