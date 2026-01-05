@@ -140,6 +140,10 @@ export function generateProductSchema(product: {
     rating?: number;
     reviewCount?: number;
 }) {
+    // Calculate priceValidUntil as 1 year from now
+    const priceValidUntil = new Date();
+    priceValidUntil.setFullYear(priceValidUntil.getFullYear() + 1);
+
     return {
         "@context": "https://schema.org",
         "@type": "Product",
@@ -153,12 +157,49 @@ export function generateProductSchema(product: {
         },
         "offers": {
             "@type": "Offer",
+            "url": product.url,
             "availability": "https://schema.org/InStock",
             "priceCurrency": "USD",
             "price": product.price || 0,
+            "priceValidUntil": priceValidUntil.toISOString().split('T')[0],
             "seller": {
                 "@type": "Organization",
                 "name": "Moscow Mix"
+            },
+            "shippingDetails": {
+                "@type": "OfferShippingDetails",
+                "shippingRate": {
+                    "@type": "MonetaryAmount",
+                    "value": "0",
+                    "currency": "USD"
+                },
+                "shippingDestination": {
+                    "@type": "DefinedRegion",
+                    "addressCountry": "US"
+                },
+                "deliveryTime": {
+                    "@type": "ShippingDeliveryTime",
+                    "handlingTime": {
+                        "@type": "QuantitativeValue",
+                        "minValue": 1,
+                        "maxValue": 2,
+                        "unitCode": "d"
+                    },
+                    "transitTime": {
+                        "@type": "QuantitativeValue",
+                        "minValue": 3,
+                        "maxValue": 7,
+                        "unitCode": "d"
+                    }
+                }
+            },
+            "hasMerchantReturnPolicy": {
+                "@type": "MerchantReturnPolicy",
+                "applicableCountry": "US",
+                "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+                "merchantReturnDays": 30,
+                "returnMethod": "https://schema.org/ReturnByMail",
+                "returnFees": "https://schema.org/FreeReturn"
             }
         },
         ...(product.rating && {
