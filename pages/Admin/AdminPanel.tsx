@@ -12,7 +12,7 @@ import {
   Sparkles, Save, Bold, Italic, Quote, Link as LinkIcon,
   Settings, ExternalLink, X, Heading1, Heading2, Eraser,
   ArrowUp, ArrowDown, Check, X as XIcon, List, FileText, Video, Eye, EyeOff,
-  Calendar, Clock, Users, User, Mail, Key, Cloud
+  Calendar, Clock, Users, User, Mail, Key, Cloud, RefreshCw
 } from 'lucide-react';
 
 const AdminPanel = () => {
@@ -36,7 +36,7 @@ const AdminPanel = () => {
   const [heroSub, setHeroSub] = useState(config.heroSubheadline);
 
   // AI Configuration
-  const [imageGenModel, setImageGenModel] = useState<'nano-banana-pro' | 'nano-banana-flash' | 'imagen-3' | 'imagen-4.0-ultra-generate-001' | 'flux' | 'turbo' | 'custom'>('nano-banana-pro');
+  const [imageGenModel, setImageGenModel] = useState<'nano-banana-pro' | 'nano-banana-flash'>('nano-banana-flash');
   const [customModelId, setCustomModelId] = useState('');
 
   // Refs
@@ -351,13 +351,117 @@ const AdminPanel = () => {
   const [coverImgDir, setCoverImgDir] = useState('');
   const [inlineImg1Dir, setInlineImg1Dir] = useState('');
   const [inlineImg2Dir, setInlineImg2Dir] = useState('');
-  const [productVisualDesc, setProductVisualDesc] = useState('');
 
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
 
   // Scheduling state
   const [postStatus, setPostStatus] = useState<'draft' | 'scheduled' | 'published'>('published');
   const [scheduledDateTime, setScheduledDateTime] = useState('');
+
+  // Post Idea Generator State
+  interface PostIdea {
+    title: string;
+    contentDirection: string;
+    targetProduct: string;
+    coverImageDirection: string;
+    inlineImage1Direction: string;
+  }
+  const [postIdeas, setPostIdeas] = useState<PostIdea[]>([]);
+  const [isLoadingIdeas, setIsLoadingIdeas] = useState(false);
+
+  // Generate 3 AI-powered post ideas using Gemini
+  const generatePostIdeas = async () => {
+    const apiKey = localStorage.getItem('gemini_api_key');
+    if (!apiKey) {
+      alert('Please enter API Key in Settings first');
+      return;
+    }
+
+    setIsLoadingIdeas(true);
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-05-06:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `You are a content strategist for Moscow Mix, a premium brand selling:
+1. Pure copper barware (Moscow Mule mugs, cups, pitchers, barware sets)
+2. Natural fire starters (wood wool firelighters, fatwood)
+
+Generate 3 UNIQUE blog post ideas that will:
+- Attract customers interested in craft cocktails, home entertaining, outdoor living
+- Subtly promote Moscow Mix products
+- Provide genuine value to readers
+- Be SEO-friendly and shareable
+
+For EACH idea, provide:
+1. title: A compelling, SEO-optimized blog post title (50-70 chars)
+2. contentDirection: Clear direction for the blog content (2-3 sentences)
+3. targetProduct: The specific Moscow Mix product to feature (e.g., "16oz Copper Moscow Mule Mug", "Natural Wood Wool Firelighters")
+4. coverImageDirection: Specific visual direction for the cover image (must include a person)
+5. inlineImage1Direction: Direction for an inline image (must include a happy person using the product)
+
+Return ONLY valid JSON array with exactly 3 objects. No markdown, no explanation.
+Example format:
+[
+  {
+    "title": "Example Title Here",
+    "contentDirection": "Write about...",
+    "targetProduct": "Product Name",
+    "coverImageDirection": "A person doing...",
+    "inlineImage1Direction": "A happy person..."
+  }
+]`
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.9,
+            maxOutputTokens: 2000
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate ideas');
+      }
+
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+      // Parse JSON from response (handle potential markdown code blocks)
+      let jsonStr = text;
+      if (text.includes('```json')) {
+        jsonStr = text.split('```json')[1].split('```')[0];
+      } else if (text.includes('```')) {
+        jsonStr = text.split('```')[1].split('```')[0];
+      }
+
+      const ideas = JSON.parse(jsonStr.trim());
+      setPostIdeas(ideas);
+    } catch (error) {
+      console.error('Error generating ideas:', error);
+      alert('Failed to generate ideas. Please try again.');
+    } finally {
+      setIsLoadingIdeas(false);
+    }
+  };
+
+  // When user clicks an idea, populate all the form fields
+  const selectPostIdea = (idea: PostIdea) => {
+    setBlogTitle(idea.title);
+    setBlogContentDirection(idea.contentDirection);
+    setTargetProduct(idea.targetProduct);
+    setCoverImgDir(idea.coverImageDirection);
+    setInlineImg1Dir(idea.inlineImage1Direction);
+    setPostIdeas([]); // Clear ideas after selection
+
+    // Scroll to the title field
+    const titleInput = document.querySelector('input[placeholder="Enter compelling title..."]');
+    if (titleInput) {
+      titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
 
   const execCmd = (command: string, value: string | undefined = undefined) => {
     document.execCommand(command, false, value);
@@ -938,14 +1042,7 @@ const AdminPanel = () => {
             
             **MANDATORY IMAGE REQUIREMENTS FOR MOSCOW MIX:**
             
-            ${productVisualDesc ? `
-            **ADMIN HAS PROVIDED EXACT PRODUCT DESCRIPTION - USE THIS VERBATIM IN ALL IMAGE PROMPTS:**
-            "${productVisualDesc}"
-            
-            Every image prompt MUST prominently include this exact product description. Do NOT deviate from it.
-            ` : `
-            Analyze the product images and create accurate prompts. Match the product appearance EXACTLY.
-            `}
+            Analyze the product images provided and create accurate prompts. Match the product appearance EXACTLY.
             
             **COVER IMAGE (MANDATORY):**
             - MUST feature a REAL PERSON (man or woman, diverse representation encouraged)
@@ -1399,6 +1496,53 @@ const AdminPanel = () => {
                   <h3 className="text-white font-serif text-xl">{editingPostId ? 'Edit Post' : 'Create New Post'}</h3>
                   {editingPostId && (<button onClick={resetJournalForm} className="text-stone-500 hover:text-white text-xs uppercase tracking-widest">Cancel Edit</button>)}
                 </div>
+
+                {/* Post Idea Generator */}
+                {!editingPostId && (
+                  <div className="bg-gradient-to-r from-amber-950/30 to-stone-900 border border-amber-800/30 rounded-lg p-5 mb-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <div>
+                        <h4 className="text-amber-400 font-bold text-sm uppercase tracking-widest flex items-center gap-2">
+                          <Sparkles size={16} /> AI Post Ideas
+                        </h4>
+                        <p className="text-stone-400 text-xs mt-1">Get 3 AI-generated post ideas tailored to Moscow Mix products</p>
+                      </div>
+                      <button
+                        onClick={generatePostIdeas}
+                        disabled={isLoadingIdeas}
+                        className="bg-amber-600 hover:bg-amber-500 disabled:bg-stone-700 text-white px-4 py-2 text-xs uppercase tracking-widest font-bold flex items-center gap-2 rounded"
+                      >
+                        {isLoadingIdeas ? (
+                          <><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> Generating...</>
+                        ) : postIdeas.length > 0 ? (
+                          <><RefreshCw size={14} /> New Ideas</>
+                        ) : (
+                          <><Sparkles size={14} /> Generate Ideas</>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Idea Cards */}
+                    {postIdeas.length > 0 && (
+                      <div className="grid grid-cols-3 gap-4">
+                        {postIdeas.map((idea, index) => (
+                          <div
+                            key={index}
+                            onClick={() => selectPostIdea(idea)}
+                            className="bg-stone-800/50 hover:bg-stone-700/50 border border-stone-700 hover:border-amber-500 rounded-lg p-4 cursor-pointer transition-all group"
+                          >
+                            <h5 className="text-white font-semibold text-sm mb-2 group-hover:text-amber-400 line-clamp-2">{idea.title}</h5>
+                            <p className="text-stone-400 text-xs mb-3 line-clamp-2">{idea.contentDirection}</p>
+                            <div className="flex items-center gap-2">
+                              <span className="bg-amber-900/50 text-amber-400 px-2 py-0.5 rounded text-[10px] font-medium">{idea.targetProduct}</span>
+                            </div>
+                            <p className="text-amber-500 text-[10px] mt-3 opacity-0 group-hover:opacity-100 transition-opacity">Click to use this idea →</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2"><label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Title</label><input type="text" className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none" value={blogTitle} onChange={e => setBlogTitle(e.target.value)} /></div>
                   <div className="space-y-2"><label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Target Product Name (for AI)</label><input type="text" placeholder="e.g. Copper Mugs" className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none" value={targetProduct} onChange={e => setTargetProduct(e.target.value)} /></div>
@@ -1417,29 +1561,9 @@ const AdminPanel = () => {
                       onChange={(e) => setImageGenModel(e.target.value as any)}
                       className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none"
                     >
-                      <option value="nano-banana-pro">🍌 Nano Banana Pro (Best Quality)</option>
                       <option value="nano-banana-flash">⚡ Nano Banana 2.5 Flash (Fast & Affordable)</option>
-                      <option value="imagen-3">Google Imagen 3.0 (Standard)</option>
-                      <option value="imagen-4.0-ultra-generate-001">Imagen 4 Ultra</option>
-                      <option value="flux">Flux (Text Friendly)</option>
-                      <option value="turbo">Turbo (Fastest)</option>
-                      <option value="custom">Custom Model ID...</option>
+                      <option value="nano-banana-pro">🍌 Nano Banana Pro (Best Quality)</option>
                     </select>
-
-                    {imageGenModel === 'custom' && (
-                      <input
-                        type="text"
-                        placeholder="e.g. nano-banana-pro-001"
-                        className="w-full bg-stone-900 border border-stone-800 p-2 text-copper-400 text-xs mt-2 focus:border-copper-500 outline-none font-mono"
-                        value={customModelId}
-                        onChange={(e) => setCustomModelId(e.target.value)}
-                      />
-                    )}
-
-                    <div className="flex justify-between items-center mt-1">
-                      <p className="text-[10px] text-stone-600">Select 'Flux' if text looks bad.</p>
-                      <button onClick={checkGoogleModels} className="text-[10px] text-copper-500 hover:text-copper-400 underline cursor-pointer">Check Available Models</button>
-                    </div>
                   </div>
                 </div>
 
@@ -1460,18 +1584,6 @@ const AdminPanel = () => {
                       <input type="text" placeholder="e.g. Fireplace setting" className="w-full bg-stone-900 border border-stone-800 p-2 text-white text-xs focus:border-copper-500 outline-none" value={inlineImg2Dir} onChange={e => setInlineImg2Dir(e.target.value)} />
                     </div>
                   </div>
-                </div>
-
-                {/* Product Visual Description Override */}
-                <div className="space-y-2 border border-amber-800/50 p-4 rounded bg-amber-950/20">
-                  <label className="text-xs uppercase tracking-widest text-amber-500 font-bold">Product Visual Description (Recommended)</label>
-                  <textarea
-                    placeholder="Describe EXACTLY how your product looks. Example: &#10;'Hammered copper Moscow Mule mug with a curved C-shaped copper handle (same rose-gold color as the body), barrel-shaped body with small uniform hammered dents, polished finish, no brass or gold accents'"
-                    className="w-full bg-stone-900 border border-stone-800 p-3 text-white text-sm focus:border-copper-500 outline-none min-h-[80px]"
-                    value={productVisualDesc}
-                    onChange={e => setProductVisualDesc(e.target.value)}
-                  />
-                  <p className="text-[10px] text-stone-500">This description will be injected EXACTLY into all AI image prompts. Be specific about handles, colors, and shapes!</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">
