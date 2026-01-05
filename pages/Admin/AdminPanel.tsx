@@ -379,7 +379,8 @@ const AdminPanel = () => {
 
     setIsLoadingIdeas(true);
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      // Using gemini-2.0-flash which is stable and available
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -389,56 +390,61 @@ const AdminPanel = () => {
 1. Pure copper barware (Moscow Mule mugs, cups, pitchers, barware sets)
 2. Natural fire starters (wood wool firelighters, fatwood)
 
-Generate 3 UNIQUE blog post ideas that will:
-- Attract customers interested in craft cocktails, home entertaining, outdoor living
-- Subtly promote Moscow Mix products
-- Provide genuine value to readers
-- Be SEO-friendly and shareable
+Generate 3 UNIQUE blog post ideas. For EACH idea provide these 5 fields:
+- title: SEO blog title (50-70 chars)
+- contentDirection: Content direction (2-3 sentences)
+- targetProduct: Product to feature (e.g. "16oz Copper Moscow Mule Mug")
+- coverImageDirection: Cover image direction (include a person)
+- inlineImage1Direction: Inline image direction (happy person using product)
 
-For EACH idea, provide:
-1. title: A compelling, SEO-optimized blog post title (50-70 chars)
-2. contentDirection: Clear direction for the blog content (2-3 sentences)
-3. targetProduct: The specific Moscow Mix product to feature (e.g., "16oz Copper Moscow Mule Mug", "Natural Wood Wool Firelighters")
-4. coverImageDirection: Specific visual direction for the cover image (must include a person)
-5. inlineImage1Direction: Direction for an inline image (must include a happy person using the product)
-
-Return ONLY valid JSON array with exactly 3 objects. No markdown, no explanation.
-Example format:
-[
-  {
-    "title": "Example Title Here",
-    "contentDirection": "Write about...",
-    "targetProduct": "Product Name",
-    "coverImageDirection": "A person doing...",
-    "inlineImage1Direction": "A happy person..."
-  }
-]`
+Return ONLY a JSON array with 3 objects. No other text.`
             }]
           }],
           generationConfig: {
-            temperature: 0.9,
-            maxOutputTokens: 2000
+            temperature: 0.8,
+            maxOutputTokens: 1500,
+            responseMimeType: "application/json"
           }
         })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate ideas');
+        const errorText = await response.text();
+        console.error('API Error:', errorText);
+        throw new Error(`API Error: ${response.status}`);
       }
 
       const data = await response.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      console.log('Raw API response:', text);
 
-      // Parse JSON from response (handle potential markdown code blocks)
-      let jsonStr = text;
-      if (text.includes('```json')) {
-        jsonStr = text.split('```json')[1].split('```')[0];
-      } else if (text.includes('```')) {
-        jsonStr = text.split('```')[1].split('```')[0];
+      // Robust JSON parsing with multiple fallback methods
+      let ideas = [];
+      try {
+        // Try direct parse first
+        ideas = JSON.parse(text);
+      } catch (e1) {
+        console.log('Direct parse failed, trying extraction...');
+        // Try to extract JSON from markdown code blocks
+        let jsonStr = text;
+        if (text.includes('```json')) {
+          jsonStr = text.split('```json')[1]?.split('```')[0] || text;
+        } else if (text.includes('```')) {
+          jsonStr = text.split('```')[1]?.split('```')[0] || text;
+        }
+        // Try to find array brackets
+        const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
+        if (arrayMatch) {
+          jsonStr = arrayMatch[0];
+        }
+        ideas = JSON.parse(jsonStr.trim());
       }
 
-      const ideas = JSON.parse(jsonStr.trim());
-      setPostIdeas(ideas);
+      if (Array.isArray(ideas) && ideas.length > 0) {
+        setPostIdeas(ideas.slice(0, 3)); // Take max 3 ideas
+      } else {
+        throw new Error('Invalid response format');
+      }
     } catch (error) {
       console.error('Error generating ideas:', error);
       alert('Failed to generate ideas. Please try again.');
