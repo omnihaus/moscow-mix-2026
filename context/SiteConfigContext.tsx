@@ -216,6 +216,55 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
     fetchData();
   }, []);
 
+  // Auto-publish scheduled posts when their scheduled time has passed
+  const checkAndPublishScheduledPosts = async () => {
+    const now = new Date();
+    const postsToPublish = config.blogPosts.filter(post =>
+      post.status === 'scheduled' &&
+      post.scheduledDate &&
+      new Date(post.scheduledDate) <= now
+    );
+
+    if (postsToPublish.length > 0) {
+      console.log('Auto-publish: Found', postsToPublish.length, 'scheduled posts ready to publish:', postsToPublish.map(p => p.title));
+
+      const updatedPosts = config.blogPosts.map(post => {
+        if (postsToPublish.some(p => p.id === post.id)) {
+          return { ...post, status: 'published' as const };
+        }
+        return post;
+      });
+
+      const newConfig = { ...config, blogPosts: updatedPosts };
+
+      try {
+        await saveToFirebase(newConfig);
+        setConfig(newConfig);
+        console.log('Auto-publish: Successfully published', postsToPublish.length, 'posts');
+      } catch (error) {
+        console.error('Auto-publish: Failed to update posts', error);
+      }
+    }
+  };
+
+  // Check for scheduled posts to publish on load and periodically
+  useEffect(() => {
+    // Initial check after a short delay to ensure data is loaded
+    const initialCheck = setTimeout(() => {
+      checkAndPublishScheduledPosts();
+    }, 3000);
+
+    // Check every minute for scheduled posts
+    const interval = setInterval(() => {
+      checkAndPublishScheduledPosts();
+    }, 60000);
+
+    return () => {
+      clearTimeout(initialCheck);
+      clearInterval(interval);
+    };
+  }, [config.blogPosts]);
+
   // --- HELPER: Save Full Config to Firebase ---
   const saveToFirebase = async (newConfig: SiteConfig): Promise<void> => {
     setIsSaving(true);
