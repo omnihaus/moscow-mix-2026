@@ -11,6 +11,8 @@ import About from './pages/About';
 import BlogList from './pages/BlogList';
 import BlogPost from './pages/BlogPost';
 import Sitemap from './pages/Sitemap';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
 import AdminPanel from './pages/Admin/AdminPanel';
 import { SiteConfigProvider } from './context/SiteConfigContext';
 
@@ -43,6 +45,8 @@ export default function App() {
                   <Route path="/journal/:id" element={<BlogPost />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/contact" element={<Contact />} />
+                  <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/terms" element={<Terms />} />
                   <Route path="/sitemap" element={<Sitemap />} />
                 </Routes>
                 <Footer />

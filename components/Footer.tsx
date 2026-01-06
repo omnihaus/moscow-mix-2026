@@ -43,20 +43,22 @@ export default function Footer() {
 
           <div>
             <h4 className="text-stone-100 uppercase text-xs tracking-widest mb-6 font-semibold">Support</h4>
-             <ul className="space-y-4 text-stone-400 text-sm">
+            <ul className="space-y-4 text-stone-400 text-sm">
               <li><Link to="/contact" className="hover:text-white transition-colors">Contact Us</Link></li>
-             </ul>
+              <li><Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
+            </ul>
           </div>
         </div>
 
         <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-stone-900">
-          <p className="text-stone-600 text-xs">© 2024 Moscow Mix. All rights reserved.</p>
+          <p className="text-stone-600 text-xs">© 2026 Moscow Mix. All rights reserved.</p>
           <div className="flex gap-6 mt-4 md:mt-0 items-center">
-             <span className="text-stone-600 text-xs cursor-pointer hover:text-stone-400">Privacy Policy</span>
-             <span className="text-stone-600 text-xs cursor-pointer hover:text-stone-400">Terms of Service</span>
-             <Link to="/admin" className="text-stone-800 hover:text-copper-900 transition-colors" title="Admin Login">
-                <Lock size={12} />
-             </Link>
+            <Link to="/privacy" className="text-stone-600 text-xs hover:text-stone-400">Privacy Policy</Link>
+            <Link to="/terms" className="text-stone-600 text-xs hover:text-stone-400">Terms of Service</Link>
+            <Link to="/admin" className="text-stone-800 hover:text-copper-900 transition-colors" title="Admin Login">
+              <Lock size={12} />
+            </Link>
           </div>
         </div>
       </div>
