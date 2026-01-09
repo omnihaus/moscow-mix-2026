@@ -176,60 +176,63 @@ export default function ReviewsSection({
     );
 }
 
-// Sample reviews data (in production, these would come from your database)
+// Real verified customer reviews from Amazon
 export const SAMPLE_REVIEWS: Review[] = [
+    // Copper Drinkware Reviews (4)
     {
         id: "rev-1",
-        author: "Michael T.",
+        author: "Patricia",
         rating: 5,
-        title: "The Real Deal",
-        content: "Finally, a copper mug that's actually solid copper! You can feel the weight and quality immediately. My Moscow Mules have never tasted better. The cold transfer is incredible.",
-        date: "2025-12-15",
+        title: "Beautifully made",
+        content: "So happy with my order, fun to drink from, comfortable handle, Really Great Mugs, stayed cold a long time.",
+        date: "2025-07-17",
         verified: true
     },
     {
         id: "rev-2",
-        author: "Sarah K.",
+        author: "LUCKYICE2",
         rating: 5,
-        title: "Beautiful and Functional",
-        content: "These mugs are stunning. The hand-hammered finish catches the light beautifully. I was worried about care, but the lemon-salt trick works perfectly to restore shine.",
-        date: "2025-11-28",
+        title: "Love them!!!!",
+        content: "OMG...Love these mugs...stays cold for a long time and the Moscow mule taste different and good in this mugs",
+        date: "2025-10-26",
         verified: true
     },
     {
         id: "rev-3",
-        author: "James R.",
+        author: "AllieZ",
         rating: 5,
-        title: "Best Fire Starters Ever",
-        content: "No more lighter fluid smell! These light instantly and burn long enough to get any fire going. I use them in my fireplace and when camping. Completely odorless.",
-        date: "2025-12-02",
+        title: "Beautiful product - keeps my water ice cold for quite a while",
+        content: "One of my favorite items I've bought from Amazon. Water tastes so much better in these mugs",
+        date: "2025-03-28",
         verified: true
     },
     {
         id: "rev-4",
-        author: "Emily L.",
-        rating: 4,
-        title: "Love the Copper Bottle",
-        content: "Great quality water bottle. Water tastes noticeably fresher after sitting in it overnight. Only wish it was a bit larger. Definitely recommend.",
-        date: "2025-10-20",
+        author: "HighNBoat",
+        rating: 5,
+        title: "Perfect mule copper mugs",
+        content: "Came without damage. Comes same as pictured. Good quality thickness of copper.",
+        date: "2025-04-07",
         verified: true
     },
+    // Fire Starter Reviews (2)
     {
         id: "rev-5",
-        author: "David M.",
+        author: "Jean Houston Grreen",
         rating: 5,
-        title: "Perfect Gift",
-        content: "Bought these as a wedding gift and they were a huge hit. The presentation is premium and they feel luxurious. Worth every penny.",
-        date: "2025-11-14",
+        title: "The best starters",
+        content: "They're great to use quick fast starting",
+        date: "2025-12-24",
         verified: true
     },
     {
         id: "rev-6",
-        author: "Amanda C.",
+        author: "Nikole Hooks",
         rating: 5,
-        title: "Restaurant Quality at Home",
-        content: "I'm a bartender and I know good copper mugs. These are as good as what we use at work, if not better. Perfect weight, great thermal properties.",
-        date: "2025-12-08",
+        title: "Works great",
+        content: "These really are great! My husband has loved using them. Really get the job done and the fire goin!",
+        date: "2025-12-07",
         verified: true
     }
 ];
+
