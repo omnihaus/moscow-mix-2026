@@ -190,7 +190,7 @@ export const SAMPLE_REVIEWS: Review[] = [
     },
     {
         id: "rev-2",
-        author: "LUCKYICE2",
+        author: "Lucky I.",
         rating: 5,
         title: "Love them!!!!",
         content: "OMG...Love these mugs...stays cold for a long time and the Moscow mule taste different and good in this mugs",
@@ -199,7 +199,7 @@ export const SAMPLE_REVIEWS: Review[] = [
     },
     {
         id: "rev-3",
-        author: "AllieZ",
+        author: "Allie Z.",
         rating: 5,
         title: "Beautiful product - keeps my water ice cold for quite a while",
         content: "One of my favorite items I've bought from Amazon. Water tastes so much better in these mugs",
@@ -208,7 +208,7 @@ export const SAMPLE_REVIEWS: Review[] = [
     },
     {
         id: "rev-4",
-        author: "HighNBoat",
+        author: "High N.",
         rating: 5,
         title: "Perfect mule copper mugs",
         content: "Came without damage. Comes same as pictured. Good quality thickness of copper.",
@@ -218,7 +218,7 @@ export const SAMPLE_REVIEWS: Review[] = [
     // Fire Starter Reviews (2)
     {
         id: "rev-5",
-        author: "Jean Houston Grreen",
+        author: "Jean G.",
         rating: 5,
         title: "The best starters",
         content: "They're great to use quick fast starting",
@@ -227,7 +227,7 @@ export const SAMPLE_REVIEWS: Review[] = [
     },
     {
         id: "rev-6",
-        author: "Nikole Hooks",
+        author: "Nikole H.",
         rating: 5,
         title: "Works great",
         content: "These really are great! My husband has loved using them. Really get the job done and the fire goin!",
