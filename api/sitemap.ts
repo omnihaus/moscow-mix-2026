@@ -1,8 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
 
 const SITE_URL = 'https://www.moscowmix.com';
+const FIREBASE_PROJECT_ID = 'moscowmix-web';
 
 // Static pages that are always in the sitemap
 const STATIC_PAGES = [
@@ -13,18 +12,6 @@ const STATIC_PAGES = [
     { path: '/about', changefreq: 'monthly', priority: '0.7' },
     { path: '/contact', changefreq: 'monthly', priority: '0.6' },
 ];
-
-// Initialize Firebase Admin SDK (only once)
-function getDb() {
-    if (getApps().length === 0) {
-        // Use default credentials when running on Vercel
-        // Firebase project ID is enough for Firestore access with proper IAM setup
-        initializeApp({
-            projectId: 'moscowmix-web',
-        });
-    }
-    return getFirestore();
-}
 
 interface BlogPost {
     id: string;
@@ -42,20 +29,53 @@ interface SiteConfig {
     products?: Product[];
 }
 
+// Fetch data from Firestore using REST API (no authentication needed for public data)
+async function fetchFirestoreData(): Promise<SiteConfig> {
+    const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/moscow_mix/live_site`;
+
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Firestore fetch failed: ${response.status}`);
+    }
+
+    const doc = await response.json();
+
+    // Parse Firestore document format
+    const fields = doc.fields || {};
+
+    // Parse blogPosts array
+    const blogPosts: BlogPost[] = [];
+    if (fields.blogPosts?.arrayValue?.values) {
+        for (const item of fields.blogPosts.arrayValue.values) {
+            const postFields = item.mapValue?.fields || {};
+            blogPosts.push({
+                id: postFields.id?.stringValue || '',
+                status: postFields.status?.stringValue as BlogPost['status'],
+                scheduledDate: postFields.scheduledDate?.stringValue,
+                publishedAt: postFields.publishedAt?.stringValue,
+            });
+        }
+    }
+
+    // Parse products array
+    const products: Product[] = [];
+    if (fields.products?.arrayValue?.values) {
+        for (const item of fields.products.arrayValue.values) {
+            const productFields = item.mapValue?.fields || {};
+            products.push({
+                id: productFields.id?.stringValue || '',
+            });
+        }
+    }
+
+    return { blogPosts, products };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
-        const db = getDb();
-        const docRef = db.collection('moscow_mix').doc('live_site');
-        const docSnap = await docRef.get();
-
-        let blogPosts: BlogPost[] = [];
-        let products: Product[] = [];
-
-        if (docSnap.exists) {
-            const data = docSnap.data() as SiteConfig;
-            blogPosts = data.blogPosts || [];
-            products = data.products || [];
-        }
+        const data = await fetchFirestoreData();
+        const blogPosts = data.blogPosts || [];
+        const products = data.products || [];
 
         // Filter to only published posts (same logic as frontend)
         const now = new Date();
