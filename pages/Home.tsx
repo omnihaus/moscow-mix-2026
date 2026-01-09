@@ -6,6 +6,8 @@ import { Link } from 'react-router-dom';
 import { Flame, Droplets, ShieldCheck, Leaf, Wind, Snowflake, CheckCircle } from 'lucide-react';
 import { useSiteConfig } from '../context/SiteConfigContext';
 import SEO from '../components/SEO';
+import FAQSection, { HOMEPAGE_FAQS } from '../components/FAQSection';
+import ReviewsSection, { SAMPLE_REVIEWS } from '../components/ReviewsSection';
 
 export default function Home() {
    const { config } = useSiteConfig();
@@ -179,7 +181,19 @@ export default function Home() {
             </div>
          </section>
 
-         {/* Section 7: Brand Story Preview */}
+         {/* Section 7: Customer Reviews */}
+         <ReviewsSection
+            reviews={SAMPLE_REVIEWS}
+            title="What Our Customers Say"
+         />
+
+         {/* Section 8: FAQ Section */}
+         <FAQSection
+            faqs={HOMEPAGE_FAQS}
+            subtitle="Everything you need to know about our copper drinkware and fire starters."
+         />
+
+         {/* Section 9: Brand Story Preview */}
          <section className="py-32 px-6 bg-stone-950 border-t border-stone-900">
             <div className="max-w-4xl mx-auto text-center">
                {/* BRAND MARK IMPLEMENTATION */}

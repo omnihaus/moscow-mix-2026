@@ -2,8 +2,9 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useSiteConfig } from '../context/SiteConfigContext';
-import { ArrowLeft, Clock, Calendar, User, Tag } from 'lucide-react';
+import { Clock, Calendar, User, Tag } from 'lucide-react';
 import SEO, { generateArticleSchema } from '../components/SEO';
+import Breadcrumbs, { getBlogBreadcrumbs } from '../components/Breadcrumbs';
 
 export default function BlogPost() {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +29,9 @@ export default function BlogPost() {
     datePublished: post.publishedAt || new Date().toISOString(),
     author: post.author
   });
+
+  // Generate breadcrumbs
+  const breadcrumbItems = getBlogBreadcrumbs(post.title);
 
   return (
     <div className="bg-stone-950 min-h-screen pt-32 pb-24">
@@ -122,10 +126,10 @@ export default function BlogPost() {
 
       <article className="max-w-3xl mx-auto px-6">
 
-        {/* Back Link */}
-        <Link to="/journal" className="inline-flex items-center gap-2 text-stone-500 hover:text-white mb-12 text-xs uppercase tracking-widest">
-          <ArrowLeft size={14} /> Back to Journal
-        </Link>
+        {/* Breadcrumbs */}
+        <div className="mb-8">
+          <Breadcrumbs items={breadcrumbItems} />
+        </div>
 
         {/* Header */}
         <header className="mb-12 text-center">

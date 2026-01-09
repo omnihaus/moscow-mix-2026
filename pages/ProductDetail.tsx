@@ -4,6 +4,8 @@ import { useParams } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import { useSiteConfig } from '../context/SiteConfigContext';
 import SEO, { generateProductSchema } from '../components/SEO';
+import Breadcrumbs, { getProductBreadcrumbs } from '../components/Breadcrumbs';
+import FAQSection, { COPPER_PRODUCT_FAQS, FIRE_PRODUCT_FAQS } from '../components/FAQSection';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -38,6 +40,11 @@ export default function ProductDetail() {
     videoLabel = "Table Service";
   }
 
+  // Determine which FAQ set to use based on product category
+  const isCopper = product.category.toLowerCase().includes('copper');
+  const productFaqs = isCopper ? COPPER_PRODUCT_FAQS : FIRE_PRODUCT_FAQS;
+  const breadcrumbItems = getProductBreadcrumbs(product.name, product.category);
+
   return (
     <div className="pt-32 pb-24 min-h-screen bg-stone-950 text-white">
       <SEO
@@ -48,6 +55,12 @@ export default function ProductDetail() {
         type="product"
         schemaData={productSchema}
       />
+
+      {/* Breadcrumbs */}
+      <div className="max-w-7xl mx-auto px-6 mb-8">
+        <Breadcrumbs items={breadcrumbItems} />
+      </div>
+
       <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24">
 
         {/* Main Image Only - using object-contain for full visibility */}
@@ -131,6 +144,13 @@ export default function ProductDetail() {
           </div>
         </div>
       )}
+
+      {/* Product FAQ Section */}
+      <FAQSection
+        faqs={productFaqs}
+        title={isCopper ? "Copper Drinkware FAQ" : "Fire Starters FAQ"}
+        subtitle={isCopper ? "Common questions about our copper mugs and drinkware." : "Common questions about our natural fire starters."}
+      />
     </div>
   );
 }
