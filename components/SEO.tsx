@@ -247,11 +247,20 @@ export function generateBreadcrumbSchema(items: { name: string; url: string }[])
     return {
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
-        "itemListElement": items.map((item, index) => ({
-            "@type": "ListItem",
-            "position": index + 1,
-            "name": item.name,
-            "item": item.url
-        }))
+        "itemListElement": items.map((item, index, arr) => {
+            const isLastItem = index === arr.length - 1;
+            // Google requires valid absolute URLs for 'item' field
+            // For the last item (current page), we omit the 'item' property entirely
+            const listItem: Record<string, unknown> = {
+                "@type": "ListItem",
+                "position": index + 1,
+                "name": item.name
+            };
+            // Only include 'item' for non-last items with valid URLs
+            if (!isLastItem && item.url && item.url !== '#') {
+                listItem["item"] = item.url;
+            }
+            return listItem;
+        })
     };
 }

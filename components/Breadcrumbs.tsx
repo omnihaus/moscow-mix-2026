@@ -17,12 +17,22 @@ export function generateBreadcrumbSchema(items: BreadcrumbItem[]) {
     return {
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
-        "itemListElement": items.map((item, index) => ({
-            "@type": "ListItem",
-            "position": index + 1,
-            "name": item.name,
-            "item": item.url
-        }))
+        "itemListElement": items.map((item, index, arr) => {
+            const isLastItem = index === arr.length - 1;
+            // Google requires valid absolute URLs for 'item' field
+            // For the last item (current page), we omit the 'item' property entirely
+            // as per Google's structured data guidelines
+            const listItem: Record<string, unknown> = {
+                "@type": "ListItem",
+                "position": index + 1,
+                "name": item.name
+            };
+            // Only include 'item' for non-last items with valid URLs
+            if (!isLastItem && item.url && item.url !== '#') {
+                listItem["item"] = item.url;
+            }
+            return listItem;
+        })
     };
 }
 
@@ -84,22 +94,22 @@ export default function Breadcrumbs({ items, className = "" }: BreadcrumbsProps)
 }
 
 // Helper functions to generate breadcrumb arrays for common pages
-export function getProductBreadcrumbs(productName: string, category: string): BreadcrumbItem[] {
+export function getProductBreadcrumbs(productName: string, category: string, productSlug?: string): BreadcrumbItem[] {
     const categorySlug = category.toLowerCase().includes('copper') ? 'copper' : 'fire';
     const categoryName = category.toLowerCase().includes('copper') ? 'Copper Drinkware' : 'Fire Starters';
 
     return [
         { name: 'Home', url: 'https://www.moscowmix.com/' },
         { name: categoryName, url: `https://www.moscowmix.com/shop/${categorySlug}` },
-        { name: productName, url: '#' } // Current page, URL not used for display
+        { name: productName, url: productSlug ? `https://www.moscowmix.com/product/${productSlug}` : '' }
     ];
 }
 
-export function getBlogBreadcrumbs(postTitle: string): BreadcrumbItem[] {
+export function getBlogBreadcrumbs(postTitle: string, postSlug?: string): BreadcrumbItem[] {
     return [
         { name: 'Home', url: 'https://www.moscowmix.com/' },
         { name: 'Journal', url: 'https://www.moscowmix.com/journal' },
-        { name: postTitle, url: '#' } // Current page
+        { name: postTitle, url: postSlug ? `https://www.moscowmix.com/journal/${postSlug}` : '' }
     ];
 }
 

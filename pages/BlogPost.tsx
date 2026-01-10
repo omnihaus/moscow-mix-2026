@@ -31,7 +31,7 @@ export default function BlogPost() {
   });
 
   // Generate breadcrumbs
-  const breadcrumbItems = getBlogBreadcrumbs(post.title);
+  const breadcrumbItems = getBlogBreadcrumbs(post.title, post.id);
 
   return (
     <div className="bg-stone-950 min-h-screen pt-32 pb-24">

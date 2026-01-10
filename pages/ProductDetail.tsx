@@ -43,7 +43,7 @@ export default function ProductDetail() {
   // Determine which FAQ set to use based on product category
   const isCopper = product.category.toLowerCase().includes('copper');
   const productFaqs = isCopper ? COPPER_PRODUCT_FAQS : FIRE_PRODUCT_FAQS;
-  const breadcrumbItems = getProductBreadcrumbs(product.name, product.category);
+  const breadcrumbItems = getProductBreadcrumbs(product.name, product.category, product.id);
 
   return (
     <div className="pt-32 pb-24 min-h-screen bg-stone-950 text-white">
