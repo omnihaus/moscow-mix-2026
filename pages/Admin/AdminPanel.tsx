@@ -522,6 +522,31 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
     }
 
     const id = editingPostId || blogTitle.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    const newSlug = blogSlug || blogTitle.toLowerCase().replace(/[^a-z0-9]/g, '-');
+
+    // ===== SLUG CONFLICT VALIDATION =====
+    // Check if this slug is already used by another post
+    const existingPostWithSlug = config.blogPosts.find(post => {
+      const postSlug = post.slug || post.id;
+      // Skip the current post when editing
+      if (editingPostId && post.id === editingPostId) return false;
+      // Check for slug match
+      return postSlug === newSlug;
+    });
+
+    if (existingPostWithSlug) {
+      const confirmOverwrite = window.confirm(
+        `⚠️ SLUG CONFLICT DETECTED!\n\n` +
+        `The slug "${newSlug}" is already used by:\n` +
+        `"${existingPostWithSlug.title}"\n\n` +
+        `Please either:\n` +
+        `• Edit the slug field to use a different URL\n` +
+        `• Delete the existing post first\n\n` +
+        `Click OK to go back and fix this.`
+      );
+      return; // Always return - don't allow duplicate slugs
+    }
+    // ===== END SLUG VALIDATION =====
 
     // Determine the display date based on status
     let displayDate: string;
@@ -540,7 +565,7 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
       date: displayDate,
       author: blogAuthor || "Michael B.",
       readTime: "5 min read",
-      slug: blogSlug || blogTitle.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+      slug: newSlug,
       tags: blogTags.split(',').map(t => t.trim()),
       metaDescription: blogMeta,
       // Scheduling fields
