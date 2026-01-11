@@ -295,8 +295,10 @@ const AdminPanel = () => {
       features: newProduct.features || [],
       category: newProduct.category as ProductCategory,
       images: newProduct.images || [],
-      rating: 5,
-      reviews: 0,
+      rating: newProduct.rating || 5,
+      reviews: newProduct.reviews || 0,
+      isBestSeller: newProduct.isBestSeller,
+      isNew: newProduct.isNew,
       amazonUrl: newProduct.amazonUrl
     };
 
