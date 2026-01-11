@@ -170,19 +170,6 @@ export const BLOG_POSTS: BlogPost[] = [
     date: "November 05, 2023",
     author: "Sarah J.",
     readTime: "6 min read"
-  },
-  {
-    id: "copper-care-guide",
-    title: "How to Keep Your Copper Shining for Decades",
-    excerpt: "Patina is beautiful, but sometimes you want that shine. Here is our simple lemon and salt method for restoration.",
-    slug: "copper-care-guide",
-    metaDescription: "Simple guide to restoring copper shine using lemon and salt. Keep your Moscow Mix mugs looking brand new.",
-    tags: ["Maintenance", "Copper Care"],
-    content: "<p>Pure copper is a living material. Over time, it interacts with oxygen to form a patina—a protective layer that darkens the metal. While many love this antique look, restoring the original shine is incredibly simple.</p><h2>Lemon & Salt: Nature's Polish</h2><p>You don't need harsh chemicals. A simple paste of lemon juice and coarse salt acts as a natural abrasive and acid that strips away tarnish in seconds. Simply cut a lemon in half, dip it in salt, and scrub the surface of your mug.</p><p>Rinse immediately with warm water and dry thoroughly with a soft cloth. This ensures no water spots remain.</p>",
-    coverImage: "https://images.unsplash.com/photo-1611566026373-c6c8544c0429?q=80&w=1200&auto=format&fit=crop",
-    date: "January 15, 2024",
-    author: "Moscow Mix Team",
-    readTime: "3 min read"
   }
 ];
 
