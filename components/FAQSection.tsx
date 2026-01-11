@@ -159,8 +159,8 @@ export const COPPER_PRODUCT_FAQS: FAQItem[] = [
         answer: "Yes, pure copper naturally develops a patina (darker coloring) over time due to oxidation. Many people love this antique look. If you prefer the original shine, it's easily restored with lemon and salt."
     },
     {
-        question: "Are these mugs lined with nickel or stainless steel?",
-        answer: "No. Our mugs are unlined, 100% pure copper throughout. Lined mugs defeat the purpose of copper's thermal properties. We believe in authenticity."
+        question: "What makes your copper mugs different from others?",
+        answer: "Our mugs are crafted from 100% solid, food-grade pure copper. This ensures maximum thermal conductivity for the coldest drinks and the most authentic Moscow Mule experience."
     },
     {
         question: "Can I put hot beverages in copper mugs?",
@@ -176,7 +176,7 @@ export const COPPER_MUG_FAQS: FAQItem[] = [
     },
     {
         question: "Are copper Moscow Mule mugs safe to drink from?",
-        answer: "Yes, our unlined copper mugs are safe for occasional use with acidic drinks like Moscow Mules. The amount of copper that leaches into your drink is negligible and within safe limits. Pure copper has been used for drinking vessels for thousands of years."
+        answer: "Yes, our pure copper mugs are safe for drinking. The amount of copper that interacts with your drink is negligible and within safe limits. Pure copper has been used for drinking vessels for thousands of years."
     },
     {
         question: "How do I clean my copper Moscow Mule mug?",
@@ -220,7 +220,7 @@ export const COPPER_BOTTLE_FAQS: FAQItem[] = [
     },
     {
         question: "How can I tell if a copper bottle is real copper?",
-        answer: "Real copper has a distinct reddish-brown color, is non-magnetic, and will develop a natural patina over time. Our bottles are 100% pure copper with no plating or lining."
+        answer: "Real copper has a distinct reddish-brown color, is non-magnetic, and will develop a natural patina over time. Our bottles are crafted from 100% pure, solid copper."
     }
 ];
 
@@ -335,11 +335,12 @@ export const FIRE_STARTER_CUBE_FAQS: FAQItem[] = [
 export function getProductFAQs(productId: string): { faqs: FAQItem[], title: string, subtitle: string } {
     const id = productId.toLowerCase();
 
-    if (id.includes('mug') || id.includes('mule')) {
+    // Check jug and bottle BEFORE mug to avoid substring matching issues
+    if (id.includes('jug') || id.includes('pitcher')) {
         return {
-            faqs: COPPER_MUG_FAQS,
-            title: "Copper Mug FAQ",
-            subtitle: "Common questions about our pure copper Moscow Mule mugs."
+            faqs: COPPER_JUG_FAQS,
+            title: "Copper Jug FAQ",
+            subtitle: "Common questions about our pure copper water jugs."
         };
     }
 
@@ -351,11 +352,11 @@ export function getProductFAQs(productId: string): { faqs: FAQItem[], title: str
         };
     }
 
-    if (id.includes('jug')) {
+    if (id.includes('mug') || id.includes('mule')) {
         return {
-            faqs: COPPER_JUG_FAQS,
-            title: "Copper Jug FAQ",
-            subtitle: "Common questions about our pure copper water jugs."
+            faqs: COPPER_MUG_FAQS,
+            title: "Copper Mug FAQ",
+            subtitle: "Common questions about our pure copper Moscow Mule mugs."
         };
     }
 
