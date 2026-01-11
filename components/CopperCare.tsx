@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Droplets, Sparkles, Shield, Clock, ArrowRight, BookOpen } from 'lucide-react';
+import { useSiteConfig } from '../context/SiteConfigContext';
+import { getPostSlug } from '../pages/BlogPost';
 
 interface CareTip {
     icon: React.ReactNode;
@@ -32,6 +34,26 @@ const CARE_TIPS: CareTip[] = [
 ];
 
 export default function CopperCare() {
+    const { config } = useSiteConfig();
+
+    // Dynamically find the copper care guide post by slug (primary) or tags/title keywords
+    const copperCarePost = config.blogPosts.find(post => {
+        const slug = getPostSlug(post);
+        // Match by slug containing 'copper-care' or 'copper' + 'care' or 'guide'
+        if (slug.includes('copper-care') || slug.includes('copper') && slug.includes('guide')) {
+            return true;
+        }
+        // Fallback: match by title keywords
+        const titleLower = post.title.toLowerCase();
+        return (titleLower.includes('copper') && titleLower.includes('care')) ||
+            (titleLower.includes('copper') && titleLower.includes('guide'));
+    });
+
+    // Use dynamic content if post found, otherwise use fallback
+    const postTitle = copperCarePost?.title || "How to Care for Copper: The Complete Guide";
+    const postExcerpt = copperCarePost?.excerpt || "Discover our simple lemon and salt method for restoring your copper to its original brilliance.";
+    const postSlug = copperCarePost ? getPostSlug(copperCarePost) : 'copper-care-guide';
+
     return (
         <section className="relative overflow-hidden">
             {/* Background with gradient */}
@@ -83,7 +105,7 @@ export default function CopperCare() {
                     ))}
                 </div>
 
-                {/* Featured Journal Link */}
+                {/* Featured Journal Link - Now Dynamic */}
                 <div className="relative bg-gradient-to-r from-stone-900 via-stone-800/50 to-stone-900 border border-stone-800 rounded-xl overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-r from-copper-500/5 via-transparent to-copper-500/5" />
 
@@ -95,24 +117,23 @@ export default function CopperCare() {
                             </div>
                         </div>
 
-                        {/* Content */}
+                        {/* Content - Now Dynamic */}
                         <div className="flex-grow text-center lg:text-left">
                             <span className="text-copper-500 uppercase tracking-widest text-xs font-bold mb-2 block">
                                 From the Journal
                             </span>
                             <h3 className="font-serif text-2xl md:text-3xl text-white mb-3">
-                                How to Keep Your Copper Shining for Decades
+                                {postTitle}
                             </h3>
                             <p className="text-stone-400 max-w-2xl leading-relaxed">
-                                Patina is beautiful, but sometimes you want that shine. Discover our simple
-                                lemon and salt method for restoring your copper to its original brilliance.
+                                {postExcerpt}
                             </p>
                         </div>
 
-                        {/* CTA */}
+                        {/* CTA - Now uses dynamic slug */}
                         <div className="flex-shrink-0">
                             <Link
-                                to="/journal/copper-care-guide"
+                                to={`/journal/${postSlug}`}
                                 className="group/btn inline-flex items-center gap-3 bg-copper-600 hover:bg-copper-500 text-white font-bold uppercase tracking-widest text-sm px-8 py-4 rounded-sm transition-all duration-300 shadow-lg shadow-copper-900/20"
                             >
                                 Read Guide
