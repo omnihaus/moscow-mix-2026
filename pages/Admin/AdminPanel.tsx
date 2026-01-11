@@ -1094,7 +1094,17 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
              "contentThemeAnalysis": "Brief analysis of the article's core message, emotions, and how images will reinforce it",
              "excerpt": "Engaging summary (150 chars)",
              "content": "Full HTML body...",
-             "slug": "seo-friendly-url",
+             "slug": "SEO-OPTIMIZED URL SLUG - FOLLOW THESE RULES EXACTLY:
+                1. Use the PRIMARY KEYWORD from the title FIRST (e.g., 'moscow-mule-recipe' not 'how-to-make-moscow-mule')
+                2. Keep it SHORT: 3-5 words max, under 60 characters total
+                3. Use ONLY lowercase letters and hyphens (no underscores, numbers, or special chars)
+                4. REMOVE all stop words (the, a, an, is, are, how, to, for, with, and, or, of, in, on)
+                5. Make it EVERGREEN - avoid dates or temporary references
+                6. Be DESCRIPTIVE but CONCISE (e.g., 'copper-mug-care-guide' not 'how-to-clean-copper')
+                7. Include BRAND terms only if highly relevant (e.g., 'moscow-mule' is good, 'moscow-mix' is not)
+                8. AEO-FRIENDLY: Optimize for voice search queries (natural language patterns)
+                EXAMPLE GOOD SLUGS: 'moscow-mule-recipe', 'copper-mug-care-guide', 'fire-starting-tips', 'campfire-safety-guide'
+                EXAMPLE BAD SLUGS: 'how-to-make-perfect-moscow-mule-at-home', 'the-best-way-to-care-for-copper', '2024-tips'",
              "tags": ["tag1", "tag2"],
              "metaDescription": "SEO meta description",
              "coverImagePrompt": "A [ethnicity] [man/woman] in their [age]s, [specific action with product], [emotion/expression], holding [EXACT PRODUCT DESCRIPTION STRING], in [setting that embodies article theme], warm natural lighting, photorealistic, magazine editorial quality, 8k",
