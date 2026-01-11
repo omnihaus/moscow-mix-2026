@@ -5,7 +5,7 @@ import { ExternalLink } from 'lucide-react';
 import { useSiteConfig } from '../context/SiteConfigContext';
 import SEO, { generateProductSchema } from '../components/SEO';
 import Breadcrumbs, { getProductBreadcrumbs } from '../components/Breadcrumbs';
-import FAQSection, { COPPER_PRODUCT_FAQS, FIRE_PRODUCT_FAQS } from '../components/FAQSection';
+import FAQSection, { getProductFAQs } from '../components/FAQSection';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -40,9 +40,8 @@ export default function ProductDetail() {
     videoLabel = "Table Service";
   }
 
-  // Determine which FAQ set to use based on product category
-  const isCopper = product.category.toLowerCase().includes('copper');
-  const productFaqs = isCopper ? COPPER_PRODUCT_FAQS : FIRE_PRODUCT_FAQS;
+  // Get product-specific FAQs based on product ID
+  const productFaqData = getProductFAQs(product.id);
   const breadcrumbItems = getProductBreadcrumbs(product.name, product.category, product.id);
 
   return (
@@ -147,9 +146,9 @@ export default function ProductDetail() {
 
       {/* Product FAQ Section */}
       <FAQSection
-        faqs={productFaqs}
-        title={isCopper ? "Copper Drinkware FAQ" : "Fire Starters FAQ"}
-        subtitle={isCopper ? "Common questions about our copper mugs and drinkware." : "Common questions about our natural fire starters."}
+        faqs={productFaqData.faqs}
+        title={productFaqData.title}
+        subtitle={productFaqData.subtitle}
       />
     </div>
   );
