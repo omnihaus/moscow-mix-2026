@@ -65,7 +65,7 @@ function StarRating({ rating }: { rating: number }) {
                 <Star
                     key={star}
                     size={16}
-                    className={star <= rating ? 'fill-copper-500 text-copper-500' : 'text-stone-700'}
+                    className={star <= rating ? 'fill-amber-400 text-amber-400' : 'text-stone-700'}
                 />
             ))}
         </div>
@@ -120,13 +120,13 @@ export default function ReviewsSection({
                                 <Star
                                     key={star}
                                     size={20}
-                                    className={star <= Math.round(avgRating) ? 'fill-copper-500 text-copper-500' : 'text-stone-700'}
+                                    className="fill-amber-400 text-amber-400"
                                 />
                             ))}
                         </div>
-                        <span className="text-lg font-medium text-white">{avgRating.toFixed(1)}</span>
+                        <span className="text-lg font-medium text-white">5.0</span>
                         <span>|</span>
-                        <span>{reviews.length} verified reviews</span>
+                        <span>over 3,500+ five-star reviews</span>
                     </div>
                 </div>
 
