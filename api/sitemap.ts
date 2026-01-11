@@ -15,9 +15,15 @@ const STATIC_PAGES = [
 
 interface BlogPost {
     id: string;
+    slug?: string;  // SEO-friendly URL slug
     status?: 'draft' | 'scheduled' | 'published';
     scheduledDate?: string;
     publishedAt?: string;
+}
+
+// Helper to get the URL slug for a post (slug takes priority over id)
+function getPostSlug(post: BlogPost): string {
+    return post.slug || post.id;
 }
 
 interface Product {
@@ -50,6 +56,7 @@ async function fetchFirestoreData(): Promise<SiteConfig> {
             const postFields = item.mapValue?.fields || {};
             blogPosts.push({
                 id: postFields.id?.stringValue || '',
+                slug: postFields.slug?.stringValue,  // Get slug from Firestore
                 status: postFields.status?.stringValue as BlogPost['status'],
                 scheduledDate: postFields.scheduledDate?.stringValue,
                 publishedAt: postFields.publishedAt?.stringValue,
@@ -114,7 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Add published blog posts
         for (const post of publishedPosts) {
             xml += '  <url>\n';
-            xml += `    <loc>${SITE_URL}/journal/${post.id}</loc>\n`;
+            xml += `    <loc>${SITE_URL}/journal/${getPostSlug(post)}</loc>\n`;
             xml += '    <changefreq>monthly</changefreq>\n';
             xml += '    <priority>0.7</priority>\n';
             if (post.publishedAt) {

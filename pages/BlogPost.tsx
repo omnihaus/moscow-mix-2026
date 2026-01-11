@@ -6,10 +6,20 @@ import { Clock, Calendar, User, Tag } from 'lucide-react';
 import SEO, { generateArticleSchema } from '../components/SEO';
 import Breadcrumbs, { getBlogBreadcrumbs } from '../components/Breadcrumbs';
 
+// Helper to get the URL-safe slug for a post
+export function getPostSlug(post: { id: string; slug?: string }): string {
+  return post.slug || post.id;
+}
+
 export default function BlogPost() {
   const { id } = useParams<{ id: string }>();
   const { config } = useSiteConfig();
-  const post = config.blogPosts.find(p => p.id === id);
+
+  // Look up post by slug first, then fall back to id for backwards compatibility
+  const post = config.blogPosts.find(p =>
+    p.slug === id || // Primary: match by slug
+    p.id === id      // Fallback: match by id (for old bookmarks)
+  );
 
   // Check if post should be visible (published, legacy, or scheduled and past date)
   const isVisible = post && (
@@ -20,18 +30,22 @@ export default function BlogPost() {
 
   if (!post || !isVisible) return <div className="pt-32 text-center text-white">Article not found</div>;
 
+  // Use slug for the canonical URL
+  const postSlug = getPostSlug(post);
+  const canonicalUrl = `https://www.moscowmix.com/journal/${postSlug}`;
+
   // Generate article schema
   const articleSchema = generateArticleSchema({
     title: post.title,
     description: post.metaDescription || post.excerpt,
     image: post.coverImage,
-    url: `https://www.moscowmix.com/journal/${post.id}`,
+    url: canonicalUrl,
     datePublished: post.publishedAt || new Date().toISOString(),
     author: post.author
   });
 
   // Generate breadcrumbs
-  const breadcrumbItems = getBlogBreadcrumbs(post.title, post.id);
+  const breadcrumbItems = getBlogBreadcrumbs(post.title, postSlug);
 
   return (
     <div className="bg-stone-950 min-h-screen pt-32 pb-24">
@@ -39,7 +53,7 @@ export default function BlogPost() {
         title={post.title}
         description={post.metaDescription || post.excerpt}
         image={post.coverImage}
-        url={`https://www.moscowmix.com/journal/${post.id}`}
+        url={canonicalUrl}
         type="article"
         publishedTime={post.publishedAt}
         author={post.author}

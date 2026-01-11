@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useSiteConfig } from '../context/SiteConfigContext';
+import { getPostSlug } from './BlogPost';
 
 const SITE_URL = 'https://www.moscowmix.com';
 
@@ -44,7 +45,7 @@ export default function Sitemap() {
             .filter(post => !post.status || post.status === 'published')
             .forEach(post => {
                 xml += '  <url>\n';
-                xml += `    <loc>${SITE_URL}/journal/${post.id}</loc>\n`;
+                xml += `    <loc>${SITE_URL}/journal/${getPostSlug(post)}</loc>\n`;
                 xml += '    <changefreq>monthly</changefreq>\n';
                 xml += '    <priority>0.7</priority>\n';
                 if (post.publishedAt) {
@@ -130,8 +131,8 @@ export default function Sitemap() {
                         {config.blogPosts
                             .filter(post => !post.status || post.status === 'published')
                             .map(post => (
-                                <a key={post.id} href={`/journal/${post.id}`} className="block text-stone-400 hover:text-white">
-                                    {SITE_URL}/journal/{post.id}
+                                <a key={post.id} href={`/journal/${getPostSlug(post)}`} className="block text-stone-400 hover:text-white">
+                                    {SITE_URL}/journal/{getPostSlug(post)}
                                 </a>
                             ))}
                     </div>

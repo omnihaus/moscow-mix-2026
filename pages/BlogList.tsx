@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSiteConfig } from '../context/SiteConfigContext';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { getPostSlug } from './BlogPost';
 
 // Pagination config
 const GRID_POSTS_PAGE_1 = 6; // 2 rows of 3 below the featured post
@@ -65,7 +66,7 @@ export default function BlogList() {
         {/* Featured Post - Only on page 1 */}
         {currentPage === 1 && featuredPost && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-24 items-center">
-            <Link to={`/journal/${featuredPost.id}`} className="block overflow-hidden group">
+            <Link to={`/journal/${getPostSlug(featuredPost)}`} className="block overflow-hidden group">
               <div className="aspect-video w-full bg-stone-900 overflow-hidden relative">
                 <img
                   src={featuredPost.coverImage}
@@ -82,12 +83,12 @@ export default function BlogList() {
                 <span>{featuredPost.readTime}</span>
               </div>
               <h2 className="font-serif text-4xl md:text-5xl text-white mb-6 leading-tight hover:text-copper-400 transition-colors">
-                <Link to={`/journal/${featuredPost.id}`}>{featuredPost.title}</Link>
+                <Link to={`/journal/${getPostSlug(featuredPost)}`}>{featuredPost.title}</Link>
               </h2>
               <p className="text-stone-400 text-lg mb-8 leading-relaxed line-clamp-3">
                 {featuredPost.excerpt}
               </p>
-              <Link to={`/journal/${featuredPost.id}`} className="inline-flex items-center gap-2 text-white hover:text-copper-400 transition-colors uppercase tracking-widest text-xs font-bold border-b border-stone-800 pb-1">
+              <Link to={`/journal/${getPostSlug(featuredPost)}`} className="inline-flex items-center gap-2 text-white hover:text-copper-400 transition-colors uppercase tracking-widest text-xs font-bold border-b border-stone-800 pb-1">
                 Read Article <ArrowRight size={14} />
               </Link>
             </div>
@@ -98,7 +99,7 @@ export default function BlogList() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
           {currentPosts.map(post => (
             <article key={post.id} className="group">
-              <Link to={`/journal/${post.id}`} className="block mb-6 overflow-hidden">
+              <Link to={`/journal/${getPostSlug(post)}`} className="block mb-6 overflow-hidden">
                 <div className="aspect-[3/2] bg-stone-900 overflow-hidden">
                   <img
                     src={post.coverImage}
@@ -113,7 +114,7 @@ export default function BlogList() {
                 <span>{post.readTime}</span>
               </div>
               <h3 className="font-serif text-2xl text-white mb-3 group-hover:text-copper-400 transition-colors">
-                <Link to={`/journal/${post.id}`}>{post.title}</Link>
+                <Link to={`/journal/${getPostSlug(post)}`}>{post.title}</Link>
               </h3>
               <p className="text-stone-400 text-sm leading-relaxed mb-4 line-clamp-3">
                 {post.excerpt}
@@ -130,8 +131,8 @@ export default function BlogList() {
               onClick={() => goToPage(currentPage - 1)}
               disabled={currentPage === 1}
               className={`p-3 border border-stone-800 rounded transition-colors ${currentPage === 1
-                  ? 'text-stone-700 cursor-not-allowed'
-                  : 'text-stone-400 hover:text-white hover:border-copper-500'
+                ? 'text-stone-700 cursor-not-allowed'
+                : 'text-stone-400 hover:text-white hover:border-copper-500'
                 }`}
             >
               <ChevronLeft size={18} />
@@ -143,8 +144,8 @@ export default function BlogList() {
                 key={page}
                 onClick={() => goToPage(page)}
                 className={`w-10 h-10 flex items-center justify-center text-sm font-bold uppercase tracking-widest rounded transition-colors ${page === currentPage
-                    ? 'bg-copper-600 text-white'
-                    : 'text-stone-400 hover:text-white border border-stone-800 hover:border-copper-500'
+                  ? 'bg-copper-600 text-white'
+                  : 'text-stone-400 hover:text-white border border-stone-800 hover:border-copper-500'
                   }`}
               >
                 {page}
@@ -156,8 +157,8 @@ export default function BlogList() {
               onClick={() => goToPage(currentPage + 1)}
               disabled={currentPage === totalPages}
               className={`p-3 border border-stone-800 rounded transition-colors ${currentPage === totalPages
-                  ? 'text-stone-700 cursor-not-allowed'
-                  : 'text-stone-400 hover:text-white hover:border-copper-500'
+                ? 'text-stone-700 cursor-not-allowed'
+                : 'text-stone-400 hover:text-white hover:border-copper-500'
                 }`}
             >
               <ChevronRight size={18} />
