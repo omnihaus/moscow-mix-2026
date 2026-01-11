@@ -1475,6 +1475,36 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
                 </div>
 
                 <div className="mb-6"><label className="text-xs uppercase tracking-widest text-stone-500 font-bold block mb-2">Amazon Product URL</label><input type="url" placeholder="https://amazon.com/dp/..." className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none" value={newProduct.amazonUrl} onChange={e => setNewProduct({ ...newProduct, amazonUrl: e.target.value })} /></div>
+
+                {/* Rating & Reviews Fields */}
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="text-xs uppercase tracking-widest text-stone-500 font-bold block mb-2">Rating (1-5)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="5"
+                      step="0.1"
+                      placeholder="4.8"
+                      className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none"
+                      value={newProduct.rating || ''}
+                      onChange={e => setNewProduct({ ...newProduct, rating: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-widest text-stone-500 font-bold block mb-2">Reviews Count</label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="1250"
+                      className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none"
+                      value={newProduct.reviews || ''}
+                      onChange={e => setNewProduct({ ...newProduct, reviews: parseInt(e.target.value) || 0 })}
+                    />
+                    <span className="text-stone-600 text-xs mt-1 block">From Amazon product page</span>
+                  </div>
+                </div>
+
                 <div className="flex items-center gap-4 mb-6">
                   <label className="cursor-pointer bg-stone-800 hover:bg-stone-700 text-white px-4 py-2 text-xs uppercase tracking-widest font-bold flex items-center gap-2">
                     <Upload size={14} /> {newProduct.images?.[0] ? 'Replace Image' : 'Upload Main Image'}
