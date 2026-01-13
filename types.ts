@@ -38,6 +38,10 @@ export interface BlogPost {
   status?: PostStatus;
   scheduledDate?: string; // ISO date string for scheduled publish time
   publishedAt?: string; // ISO date string when actually published
+  // AEO Direct Answer Block
+  aeoQuestion?: string;       // H2 heading (e.g., "What is the best way to clean copper mugs?")
+  aeoAnswer?: string;         // 40-60 word direct answer paragraph
+  aeoListItems?: string[];    // Optional bullet/numbered list for steps or key points
 }
 
 export interface Testimonial {

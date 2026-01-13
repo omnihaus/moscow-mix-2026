@@ -264,3 +264,18 @@ export function generateBreadcrumbSchema(items: { name: string; url: string }[])
         })
     };
 }
+
+export function generateFAQSchema(question: string, answer: string) {
+    return {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [{
+            "@type": "Question",
+            "name": question,
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": answer
+            }
+        }]
+    };
+}

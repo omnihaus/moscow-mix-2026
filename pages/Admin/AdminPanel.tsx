@@ -341,6 +341,10 @@ const AdminPanel = () => {
   const [blogTags, setBlogTags] = useState('');
   const [blogMeta, setBlogMeta] = useState('');
   const [blogAuthor, setBlogAuthor] = useState('');
+  // AEO Direct Answer Block state
+  const [aeoQuestion, setAeoQuestion] = useState('');
+  const [aeoAnswer, setAeoAnswer] = useState('');
+  const [aeoListItems, setAeoListItems] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStatus, setGenerationStatus] = useState('');
 
@@ -571,7 +575,11 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
       // Scheduling fields
       status: postStatus,
       scheduledDate: postStatus === 'scheduled' ? scheduledDateTime : undefined,
-      publishedAt: postStatus === 'published' ? new Date().toISOString() : undefined
+      publishedAt: postStatus === 'published' ? new Date().toISOString() : undefined,
+      // AEO Direct Answer Block
+      aeoQuestion: aeoQuestion || undefined,
+      aeoAnswer: aeoAnswer || undefined,
+      aeoListItems: aeoListItems ? aeoListItems.split('\n').filter(item => item.trim()) : undefined
     };
 
     const statusMessages: Record<typeof postStatus, string> = {
@@ -628,6 +636,11 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
     setPostStatus(post.status || 'published');
     setScheduledDateTime(post.scheduledDate || '');
 
+    // Load AEO fields
+    setAeoQuestion(post.aeoQuestion || '');
+    setAeoAnswer(post.aeoAnswer || '');
+    setAeoListItems(post.aeoListItems?.join('\n') || '');
+
     setTargetProduct('');
     setTargetProductBase64s([]);
     setTargetProductImagePreviews([]);
@@ -660,6 +673,10 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
     // Reset scheduling state
     setPostStatus('published');
     setScheduledDateTime('');
+    // Reset AEO fields
+    setAeoQuestion('');
+    setAeoAnswer('');
+    setAeoListItems('');
   };
 
   const handleDeletePost = (e: React.MouseEvent, id: string) => {
@@ -1138,7 +1155,10 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
              "inlineImagePrompts": [
                "A happy [man/woman], genuinely smiling, [action relevant to paragraph], with [EXACT PRODUCT DESCRIPTION STRING] visible, [lifestyle setting], photorealistic, candid lifestyle photography, 8k",
                "Second inline image prompt with product and context"
-             ]
+             ],
+             "aeoQuestion": "The primary question this article answers, phrased exactly as users would search. Example: 'What is the best way to clean copper mugs?' Start with What/How/Why.",
+             "aeoAnswer": "A 40-60 word direct answer. Start with the subject noun (e.g., 'Copper mugs...'), never pronouns. Must stand completely alone if extracted from the article.",
+             "aeoListItems": ["Key step or point 1", "Key step or point 2", "Key step or point 3"]
            }
       `;
 
@@ -1162,6 +1182,13 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
       setBlogSlug(data.slug);
       setBlogTags(data.tags.join(', '));
       setBlogMeta(data.metaDescription);
+
+      // Set AEO fields from AI generation
+      if (data.aeoQuestion) setAeoQuestion(data.aeoQuestion);
+      if (data.aeoAnswer) setAeoAnswer(data.aeoAnswer);
+      if (data.aeoListItems && Array.isArray(data.aeoListItems)) {
+        setAeoListItems(data.aeoListItems.join('\n'));
+      }
 
       // 2. Generate Cover Image
       setGenerationStatus('Generating & Uploading Cover Image...');
@@ -1706,6 +1733,19 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
                   <div className="space-y-2"><label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Slug (URL)</label><input type="text" placeholder="my-blog-post" className="w-full bg-stone-950 border border-stone-800 p-3 text-stone-400 focus:border-copper-500 outline-none text-sm font-mono" value={blogSlug} onChange={e => setBlogSlug(e.target.value)} /></div>
                   <div className="col-span-2 space-y-2"><label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Meta Description</label><input type="text" className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none text-sm" value={blogMeta} onChange={e => setBlogMeta(e.target.value)} /></div>
                   <div className="col-span-2 space-y-2"><label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Tags (comma separated)</label><input type="text" placeholder="Copper, Lifestyle, Fire" className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none text-sm" value={blogTags} onChange={e => setBlogTags(e.target.value)} /></div>
+                  {/* AEO Direct Answer Block Section */}
+                  <div className="col-span-2 border-t border-stone-800 pt-6 mt-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="text-xs uppercase tracking-widest text-copper-400 font-bold">✨ AEO Direct Answer Block</span>
+                      <span className="text-[10px] text-stone-500">(Answer Engine Optimization)</span>
+                    </div>
+                    <p className="text-xs text-stone-500 mb-4">Add a direct Q&A at the top of your post to help AI engines like ChatGPT and Google AI Overview extract and cite your content.</p>
+                    <div className="space-y-4">
+                      <div className="space-y-2"><label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Question (H2 Heading)</label><input type="text" placeholder="What is the best way to clean copper mugs?" className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none text-sm" value={aeoQuestion} onChange={e => setAeoQuestion(e.target.value)} /><span className="text-[10px] text-stone-500">Phrase as the question your readers are searching for</span></div>
+                      <div className="space-y-2"><label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Direct Answer (40-60 words)</label><textarea placeholder="Start with the subject, not pronouns. E.g., 'Copper mugs should be cleaned with...' not 'They should be...'" className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none text-sm min-h-[80px]" value={aeoAnswer} onChange={e => setAeoAnswer(e.target.value)} /><span className="text-[10px] text-stone-500">Words: {aeoAnswer.split(/\s+/).filter(w => w).length}/60 • Must stand alone without context</span></div>
+                      <div className="space-y-2"><label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Key Points / Steps (optional, one per line)</label><textarea placeholder="Use warm water and mild soap\nDry immediately with soft cloth\nApply food-safe copper polish monthly" className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none text-sm min-h-[80px] font-mono text-xs" value={aeoListItems} onChange={e => setAeoListItems(e.target.value)} /><span className="text-[10px] text-stone-500">AIs love structured lists. Enter each step or point on a new line.</span></div>
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-2 pt-4">
                   <label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Cover Image</label>

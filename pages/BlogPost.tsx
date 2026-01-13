@@ -3,7 +3,7 @@ import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useSiteConfig } from '../context/SiteConfigContext';
 import { Clock, Calendar, User, Tag } from 'lucide-react';
-import SEO, { generateArticleSchema } from '../components/SEO';
+import SEO, { generateArticleSchema, generateFAQSchema } from '../components/SEO';
 import Breadcrumbs, { getBlogBreadcrumbs } from '../components/Breadcrumbs';
 
 // Helper to get the URL-safe slug for a post
@@ -44,6 +44,16 @@ export default function BlogPost() {
     author: post.author
   });
 
+  // Generate FAQ schema for AEO if present
+  const faqSchema = post.aeoQuestion && post.aeoAnswer
+    ? generateFAQSchema(post.aeoQuestion, post.aeoAnswer)
+    : null;
+
+  // Combine schemas into an array for JSON-LD
+  const combinedSchema = faqSchema
+    ? [articleSchema, faqSchema]
+    : articleSchema;
+
   // Generate breadcrumbs
   const breadcrumbItems = getBlogBreadcrumbs(post.title, postSlug);
 
@@ -57,7 +67,7 @@ export default function BlogPost() {
         type="article"
         publishedTime={post.publishedAt}
         author={post.author}
-        schemaData={articleSchema}
+        schemaData={combinedSchema}
       />
       {/* Custom Styles for Blog Content to support the Admin Editor's HTML output */}
       <style>{`
@@ -170,6 +180,21 @@ export default function BlogPost() {
         <div className="w-full aspect-video bg-stone-900 mb-16 overflow-hidden">
           <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover" />
         </div>
+
+        {/* AEO Direct Answer Block */}
+        {post.aeoQuestion && post.aeoAnswer && (
+          <div className="mb-12 p-6 bg-stone-900/50 border-l-4 border-copper-500 rounded-r-lg">
+            <h2 className="font-serif text-2xl md:text-3xl text-white mb-4">{post.aeoQuestion}</h2>
+            <p className="text-stone-200 text-lg leading-relaxed mb-4">{post.aeoAnswer}</p>
+            {post.aeoListItems && post.aeoListItems.length > 0 && (
+              <ul className="list-disc list-inside text-stone-300 space-y-2">
+                {post.aeoListItems.map((item, index) => (
+                  <li key={index}>{item}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         {/* Content Rendered as HTML */}
         <div
