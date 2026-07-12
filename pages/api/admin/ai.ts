@@ -5,7 +5,9 @@ export const config = {
   api: { bodyParser: { sizeLimit: '20mb' } },
 };
 
-const textModel = process.env.OPENAI_TEXT_MODEL || 'gpt-5.6';
+// GPT-5.4 mini is designed for fast, high-volume, well-defined writing tasks.
+// A Vercel OPENAI_TEXT_MODEL value can override this later without a code change.
+const textModel = process.env.OPENAI_TEXT_MODEL || 'gpt-5.4-mini';
 const imageModel = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
 
 function authorized(req: NextApiRequest) {
@@ -49,6 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const response = await openai.responses.create({
       model: textModel,
       input: [{ role: 'user', content }],
+      reasoning: { effort: 'low' },
     });
     return res.status(200).json({ text: response.output_text });
   } catch (error: any) {

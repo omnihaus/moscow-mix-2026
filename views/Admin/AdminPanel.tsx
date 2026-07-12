@@ -702,6 +702,13 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`);
 
     try {
       const productsContext = config.products.map(p => `${p.name} (ID: ${p.id})`).join(', ');
+      // Across each four-post sequence: 9 of 12 people are European, and 3 are
+      // contemporary Chinese or Japanese adults. Cover and first inline image
+      // remain European; the second inline image provides the rotating mix.
+      const titleHash = Array.from(blogTitle).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+      const inlineTwoCasting = titleHash % 4 === 0
+        ? 'Cast a European adult in contemporary, understated lifestyle clothing.'
+        : 'Cast a contemporary Chinese or Japanese adult in modern, understated lifestyle clothing.';
 
       const prompt = `
         You are an expert luxury lifestyle editor for 'Moscow Mix' - a premium brand selling pure copper barware products and natural fire starters.
@@ -764,6 +771,7 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`);
             
             **COVER IMAGE (MANDATORY):**
             - MUST feature a REAL PERSON (man or woman, diverse representation encouraged)
+            - Cast a European adult in contemporary, understated lifestyle clothing. Avoid cultural stereotypes.
             - Person should EMBODY the lifestyle/emotion of the article
             - Person should be INTERACTING with the Moscow Mix product (holding mug, enjoying drink, gathered around fire, etc.)
             - Setting should VISUALLY SUMMARIZE the article's message
@@ -772,12 +780,14 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`);
             
             **INLINE IMAGE 1 (MANDATORY - MUST INCLUDE HAPPY PERSON):**
             - MUST feature a HAPPY person (genuine smile, relaxed, enjoying the moment)
+            - Cast a European adult in contemporary, understated lifestyle clothing. Avoid cultural stereotypes.
             - Person should be engaged with the product or activity described in surrounding text
             - Should feel like authentic lifestyle photography, not staged
             ${inlineImg1Dir ? `- SPECIFIC DIRECTION: "${inlineImg1Dir}"` : '- Must be contextually relevant to the surrounding paragraph content.'}
             
             **INLINE IMAGE 2:**
             - Can be product-focused or include people
+            - ${inlineTwoCasting} Avoid cultural stereotypes.
             - Should be contextually relevant to surrounding paragraph content
             - Should subtly reinforce Moscow Mix brand lifestyle
             ${inlineImg2Dir ? `- SPECIFIC DIRECTION: "${inlineImg2Dir}"` : ''}
@@ -834,22 +844,8 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`);
       }
 
       // 2. Generate Cover Image
-      setGenerationStatus('Generating & Uploading Cover Image...');
-      const coverPrompt = data.coverImagePrompt || `A professional, magazine-quality photo for a blog post about: ${blogTitle}. ${blogContentDirection || ''}. Photorealistic, 8k.`;
-      const coverUrlRaw = await generateImageFromPrompt(coverPrompt, imageGenModel, targetProductBase64s);
-
-      let coverUrl = "";
-      if (coverUrlRaw) {
-        if (coverUrlRaw.startsWith('data:')) {
-          coverUrl = await uploadBase64ToFirebase(coverUrlRaw, 'blog-covers');
-        } else {
-          // It's a Pollinations URL
-          coverUrl = coverUrlRaw;
-        }
-      }
-      if (coverUrl) setBlogCover(coverUrl);
-
-      setGenerationStatus('Rendering & Uploading Inline Images...');
+      setGenerationStatus('Creating the cover and two article images together...');
+      const coverPrompt = `${data.coverImagePrompt || `A professional, magazine-quality photo for a blog post about: ${blogTitle}. ${blogContentDirection || ''}. Photorealistic, 8k.`} CASTING REQUIREMENT: Cast a European adult in contemporary, understated lifestyle clothing. Avoid cultural stereotypes.`;
       let finalContent = data.content;
 
       // Improved regex to handle various attribute orderings if necessary, but standardizing on the one we generated
@@ -858,35 +854,41 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`);
       // transform to array to avoid iterator issues during async replacement
       const matches = Array.from(finalContent.matchAll(placeholderRegex));
 
-      for (const match of matches) {
-        const fullMatch = match[0]; // e.g. <div ...></div>
-        const imgPrompt = match[1]; // The prompt text
+      const inlineJobs = matches.slice(0, 2).map((match, index) => {
+        const originalPrompt = match[1];
+        const casting = index === 0
+          ? 'CASTING REQUIREMENT: Cast a European adult in contemporary, understated lifestyle clothing. Avoid cultural stereotypes.'
+          : `CASTING REQUIREMENT: ${inlineTwoCasting} Avoid cultural stereotypes.`;
+        return { fullMatch: match[0], originalPrompt, prompt: `${originalPrompt} ${casting}` };
+      });
 
-        setGenerationStatus(`Creating image: ${imgPrompt.substring(0, 20)}...`);
-        const imgBase64 = await generateImageFromPrompt(imgPrompt, imageGenModel, targetProductBase64s);
+      const [coverUrlRaw, ...inlineImages] = await Promise.all([
+        generateImageFromPrompt(coverPrompt, imageGenModel, targetProductBase64s),
+        ...inlineJobs.map(job => generateImageFromPrompt(job.prompt, imageGenModel, targetProductBase64s)),
+      ]);
 
-        if (imgBase64) {
-          let imageUrl = await uploadBase64ToFirebase(imgBase64, 'blog-content');
-
-          // Fallback: If upload failed, use the direct Pollinations URL
-          if (!imageUrl) {
-            console.warn("Firebase upload failed. Using external URL fallback.");
-            imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imgPrompt + " photorealistic, cinematic, 8k, luxury product photography")}`;
-          }
-
-          if (imageUrl) {
-            const imgTag = `<div class="image-block"><img src="${imageUrl}" alt="${imgPrompt}" /><span class="caption">${imgPrompt.split('.')[0]}</span></div>`;
-            finalContent = finalContent.replace(fullMatch, imgTag);
-          } else {
-            finalContent = finalContent.replace(fullMatch, '');
-          }
-        } else {
-          // Even if generation blob failed, try the direct URL as a last resort
-          const fallbackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imgPrompt + " photorealistic, cinematic, 8k, luxury product photography")}`;
-          const imgTag = `<div class="image-block"><img src="${fallbackUrl}" alt="${imgPrompt}" /><span class="caption">${imgPrompt.split('.')[0]}</span></div>`;
-          finalContent = finalContent.replace(fullMatch, imgTag);
+      const uploadGeneratedImage = async (rawImage: string | null, folder: string, prompt: string) => {
+        if (rawImage?.startsWith('data:')) {
+          const uploaded = await uploadBase64ToFirebase(rawImage, folder);
+          if (uploaded) return uploaded;
         }
-      }
+        return rawImage || `https://image.pollinations.ai/prompt/${encodeURIComponent(`${prompt} photorealistic, cinematic, luxury product photography`)}`;
+      };
+
+      setGenerationStatus('Saving the completed images...');
+      const [coverUrl, ...inlineUrls] = await Promise.all([
+        uploadGeneratedImage(coverUrlRaw, 'blog-covers', coverPrompt),
+        ...inlineJobs.map((job, index) => uploadGeneratedImage(inlineImages[index], 'blog-content', job.prompt)),
+      ]);
+      if (coverUrl) setBlogCover(coverUrl);
+
+      inlineJobs.forEach((job, index) => {
+        const imageUrl = inlineUrls[index];
+        const imgTag = imageUrl
+          ? `<div class="image-block"><img src="${imageUrl}" alt="${job.originalPrompt}" /><span class="caption">${job.originalPrompt.split('.')[0]}</span></div>`
+          : '';
+        finalContent = finalContent.replace(job.fullMatch, imgTag);
+      });
 
       if (contentEditableRef.current) contentEditableRef.current.innerHTML = finalContent;
       setBlogContent(finalContent);
