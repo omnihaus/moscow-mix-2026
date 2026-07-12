@@ -697,6 +697,10 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`);
       alert("Please enter a Title first");
       return;
     }
+    if (targetProductBase64s.length === 0) {
+      alert("Please upload at least one Moscow Mix product photo. The AI uses it to keep every generated product accurate to what you sell.");
+      return;
+    }
 
     setIsGenerating(true);
     setGenerationStatus('Analyzing product images & Writing content...');
@@ -1352,7 +1356,8 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`);
 
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Target Product Images (Optional)</label>
+                    <label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Moscow Mix Product Reference Images (Required)</label>
+                    <p className="text-xs text-stone-600">Upload clear front and side views of the exact product. AI generation is blocked without a genuine product reference.</p>
                     <div className="flex flex-col gap-2">
                       <label className="cursor-pointer bg-stone-800 hover:bg-stone-700 text-white px-4 py-3 w-full text-center text-xs uppercase tracking-widest font-bold flex items-center justify-center gap-2">
                         <Upload size={14} /> Upload Images
