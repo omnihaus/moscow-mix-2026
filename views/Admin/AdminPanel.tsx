@@ -6,7 +6,6 @@ import { Product, BlogPost, ProductCategory, AdminUser } from '../../types';
 import { storage } from '../../firebase';
 // FIXED: Import storage functions ONLY from firebase/storage
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import Link from 'next/link';
 import {
   Lock, Layout, Type, Image as ImageIcon, ShoppingBag,
@@ -24,8 +23,9 @@ const AdminPanel = () => {
   const [passwordInput, setPasswordInput] = useState('');
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
   const [activeTab, setActiveTab] = useState<'hero' | 'products' | 'journal' | 'story' | 'assets' | 'settings' | 'team'>('hero');
-  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [aiAccessCode, setAiAccessCode] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
+  const [openAiConfigured, setOpenAiConfigured] = useState<boolean | null>(null);
 
   // Password Change State
   const [isChangingPass, setIsChangingPass] = useState(false);
@@ -38,43 +38,29 @@ const AdminPanel = () => {
   const [heroSub, setHeroSub] = useState(config.heroSubheadline);
 
   // AI Configuration
-  const [imageGenModel, setImageGenModel] = useState<'nano-banana-pro' | 'nano-banana-flash'>('nano-banana-flash');
-  const [customModelId, setCustomModelId] = useState('');
+  const [imageGenModel] = useState('gpt-image-2');
 
   // Refs
   const contentEditableRef = useRef<HTMLDivElement>(null);
   const inlineImageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const savedKey = localStorage.getItem('gemini_api_key');
-    if (savedKey) setApiKeyInput(savedKey);
+    const savedCode = localStorage.getItem('admin_ai_access_code');
+    if (savedCode) setAiAccessCode(savedCode);
+    fetch('/api/admin/ai').then(r => r.json()).then(data => setOpenAiConfigured(Boolean(data.configured))).catch(() => setOpenAiConfigured(false));
   }, []);
 
-  const checkGoogleModels = async () => {
-    try {
-      const apiKey = localStorage.getItem('gemini_api_key') || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-      if (!apiKey) return alert("Please save API Key first.");
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-      const data = await response.json();
-
-      if (!data.models) return alert("No models found directly. Check permissions.");
-
-      // Filter for IMAGE generation models (look for 'predict' method or 'imagen' name)
-      const imageModels = data.models.filter((m: any) =>
-        m.name.includes('imagen') || (m.supportedGenerationMethods && m.supportedGenerationMethods.includes('predict'))
-      );
-
-      if (imageModels.length === 0) {
-        alert("No specific 'Image Generation' models found for this key.\n\nTry enabling 'Vertex AI' in Google Cloud, or use the 'Flux' option.");
-        return;
-      }
-
-      const names = imageModels.map((m: any) => m.name.replace('models/', '')).join('\n');
-      alert(`Valid IMAGE Models for your Key:\n\n${names}\n\n(Copy one of these exactly)`);
-    } catch (e) {
-      alert("Failed to fetch models: " + e);
-    }
+  const callOpenAI = async (prompt: string, operation: 'text' | 'image' = 'text', images: string[] = []) => {
+    const accessCode = localStorage.getItem('admin_ai_access_code') || aiAccessCode;
+    if (!accessCode) throw new Error('Please save your AI access code in Settings first.');
+    const response = await fetch('/api/admin/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-ai-secret': accessCode },
+      body: JSON.stringify({ operation, prompt, images }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'OpenAI generation failed.');
+    return operation === 'image' ? data.image : data.text;
   };
 
   const handleLogin = (e: React.FormEvent) => {
@@ -116,14 +102,14 @@ const AdminPanel = () => {
   };
 
   const handleSaveApiKey = () => {
-    if (!apiKeyInput.trim()) {
-      alert("Please enter a valid API Key");
+    if (!aiAccessCode.trim()) {
+      alert("Please enter the AI access code from Vercel.");
       return;
     }
-    const key = apiKeyInput.trim();
-    localStorage.setItem('gemini_api_key', key);
-    setApiKeyInput(key);
-    alert("API Key Saved Securely");
+    const code = aiAccessCode.trim();
+    localStorage.setItem('admin_ai_access_code', code);
+    setAiAccessCode(code);
+    alert("AI access code saved. Your OpenAI API key remains private on Vercel.");
   };
 
   const handleSaveCredentials = () => {
@@ -210,16 +196,10 @@ const AdminPanel = () => {
   };
 
   const handleGenerateFeatures = async () => {
-    const storedKey = localStorage.getItem('gemini_api_key');
-    const apiKey = storedKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-
-    if (!apiKey) return alert("Please enter API Key in Settings first");
     if (!newProduct.name || !newProduct.description) return alert("Enter Product Name and Description first");
 
     setIsGeneratingFeatures(true);
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
       const prompt = `
             Analyze this product and generate 5 premium, benefit-driven feature bullet points (max 6 words each).
             Product: ${newProduct.name}
@@ -229,9 +209,7 @@ const AdminPanel = () => {
             Return ONLY a raw JSON array of strings. Example: ["Hand-hammered finish", "100% pure copper"]
           `;
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+      const text = await callOpenAI(prompt);
 
       if (text) {
         const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -249,16 +227,10 @@ const AdminPanel = () => {
   };
 
   const handleGenerateDescription = async () => {
-    const storedKey = localStorage.getItem('gemini_api_key');
-    const apiKey = storedKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-
-    if (!apiKey) return alert("Please enter API Key in Settings first");
     if (!newProduct.name) return alert("Enter Product Name first");
 
     setIsGeneratingDesc(true);
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
       const prompt = `
             Write a premium, short, and compelling product description (2-3 sentences) for:
             Product Name: ${newProduct.name}
@@ -268,9 +240,7 @@ const AdminPanel = () => {
             Return ONLY the raw description text. No quotes.
           `;
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+      const text = await callOpenAI(prompt);
 
       if (text) {
         setNewProduct(prev => ({ ...prev, description: text.trim() }));
@@ -377,24 +347,11 @@ const AdminPanel = () => {
   const [postIdeas, setPostIdeas] = useState<PostIdea[]>([]);
   const [isLoadingIdeas, setIsLoadingIdeas] = useState(false);
 
-  // Generate 3 AI-powered post ideas using Gemini
+  // Generate 3 AI-powered post ideas using OpenAI
   const generatePostIdeas = async () => {
-    const apiKey = localStorage.getItem('gemini_api_key');
-    if (!apiKey) {
-      alert('Please enter API Key in Settings first');
-      return;
-    }
-
     setIsLoadingIdeas(true);
     try {
-      // Using gemini-2.0-flash which is stable and available
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `You are an expert content strategist for Moscow Mix, a premium brand.
+      const text = await callOpenAI(`You are an expert content strategist for Moscow Mix, a premium brand.
 
 PRODUCTS:
 - Pure copper Moscow Mule mugs (hammered, smooth, various sizes)
@@ -421,25 +378,7 @@ For EACH idea provide exactly these 5 fields:
 - coverImageDirection: Vivid scene with a person embodying the content
 - inlineImage1Direction: Action shot of happy person using the product
 
-Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
-            }]
-          }],
-          generationConfig: {
-            temperature: 1.0,
-            maxOutputTokens: 2000,
-            responseMimeType: "application/json"
-          }
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API Error:', errorText);
-        throw new Error(`API Error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+Return ONLY a JSON array with 3 objects. No markdown, no explanation.`);
       console.log('Raw API response:', text);
 
       // Robust JSON parsing with multiple fallback methods
@@ -733,313 +672,26 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
     setTargetProductBase64s(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Uses Google's native Imagen 3 model (requested as 'Nano Banana Pro')
-  // referenceImages: optional array of base64 image strings to use as product reference
+  // OpenAI image generation is routed through our private server endpoint.
   const generateImageFromPrompt = async (
-    genAI: GoogleGenerativeAI,
     prompt: string,
-    modelType: string = 'imagen-3',
-    referenceImages?: string[]
+    _modelType?: string,
+    _referenceImages?: string[]
   ): Promise<string | null> => {
     try {
-      console.log(`Generating image with ${modelType} for:`, prompt);
-      if (referenceImages?.length) {
-        console.log(`Using ${referenceImages.length} reference image(s) for subject matching`);
-      }
-      const apiKey = localStorage.getItem('gemini_api_key') || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-
-      // OPTION 0: NANO BANANA PRO (Gemini 3 Pro Image) - BEST for product reference matching
-      // Uses native Gemini generateContent API with reference images in contents array
-      if (modelType === 'nano-banana-pro' || modelType === 'gemini-3-pro-image-preview') {
-        console.log("Using Nano Banana Pro (Gemini 3 Pro Image) with reference images...");
-
-        // Build contents array with prompt and reference images
-        const contents: any[] = [{ text: prompt + ". Match the product appearance exactly from the reference images provided. Photorealistic, professional photography, 8k quality." }];
-
-        // Add reference images as inlineData in the contents array
-        if (referenceImages && referenceImages.length > 0) {
-          console.log(`Including ${referenceImages.length} product reference image(s) for exact matching`);
-          referenceImages.forEach((base64, index) => {
-            contents.push({
-              inlineData: {
-                mimeType: "image/jpeg",
-                data: base64
-              }
-            });
-          });
-        }
-
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: contents }],
-            generationConfig: {
-              responseModalities: ["TEXT", "IMAGE"],
-              imageConfig: {
-                aspectRatio: "16:9",
-                imageSize: "2K"
-              }
-            }
-          })
-        });
-
-        if (!response.ok) {
-          const err = await response.text();
-          console.error("Nano Banana Pro error:", err);
-          throw new Error(`Nano Banana Pro failed: ${err}`);
-        }
-
-        const data = await response.json();
-
-        // Extract image from response parts
-        const parts = data.candidates?.[0]?.content?.parts || [];
-        for (const part of parts) {
-          if (part.inlineData) {
-            console.log("Nano Banana Pro: Generated image successfully!");
-            return `data:image/${part.inlineData.mimeType?.split('/')[1] || 'png'};base64,${part.inlineData.data}`;
-          }
-        }
-
-        console.warn("Nano Banana Pro: No image in response, parts:", parts);
-        return null;
-      }
-
-      // OPTION 0.5: NANO BANANA 2.5 FLASH (gemini-2.5-flash-image-preview) - Fast & Affordable
-      // Uses native Gemini generateContent API with reference images - faster than Pro
-      if (modelType === 'nano-banana-flash' || modelType === 'gemini-2.5-flash-image-preview') {
-        console.log("Using Nano Banana 2.5 Flash with reference images...");
-
-        // Build contents array with prompt and reference images
-        const contents: any[] = [{ text: prompt + ". Match the product appearance exactly from the reference images provided. Photorealistic, professional photography, 8k quality." }];
-
-        // Add reference images as inlineData in the contents array
-        if (referenceImages && referenceImages.length > 0) {
-          console.log(`Including ${referenceImages.length} product reference image(s) for exact matching`);
-          referenceImages.forEach((base64) => {
-            contents.push({
-              inlineData: {
-                mimeType: "image/jpeg",
-                data: base64
-              }
-            });
-          });
-        }
-
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: contents }],
-            generationConfig: {
-              responseModalities: ["TEXT", "IMAGE"]
-            }
-          })
-        });
-
-        if (!response.ok) {
-          const err = await response.text();
-          console.error("Nano Banana 2.5 Flash error:", err);
-          throw new Error(`Nano Banana 2.5 Flash failed: ${err}`);
-        }
-
-        const data = await response.json();
-
-        // Extract image from response parts
-        const parts = data.candidates?.[0]?.content?.parts || [];
-        for (const part of parts) {
-          if (part.inlineData) {
-            console.log("Nano Banana 2.5 Flash: Generated image successfully!");
-            return `data:image/${part.inlineData.mimeType?.split('/')[1] || 'png'};base64,${part.inlineData.data}`;
-          }
-        }
-
-        console.warn("Nano Banana 2.5 Flash: No image in response, parts:", parts);
-        return null;
-      }
-
-      // OPTION 1: FLUX (via Pollinations) - no reference support
-      if (modelType === 'flux') {
-        const enhancedPrompt = encodeURIComponent(prompt + " photorealistic, cinematic lighting, 8k uhd, highly detailed, professional photography");
-        return `https://pollinations.ai/p/${enhancedPrompt}?width=1024&height=1024&seed=${Math.floor(Math.random() * 1000)}&model=flux`;
-      }
-
-      // OPTION 2: TURBO (via Pollinations) - no reference support
-      if (modelType === 'turbo') {
-        const enhancedPrompt = encodeURIComponent(prompt);
-        return `https://pollinations.ai/p/${enhancedPrompt}?width=1024&height=1024&seed=${Math.floor(Math.random() * 1000)}&model=turbo`;
-      }
-
-      // OPTION 3: CUSTOM MODEL
-      if (modelType === 'custom') {
-        if (!customModelId) throw new Error("Please enter a Custom Model ID");
-        console.log("Using Custom Model:", customModelId);
-
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${customModelId}:predict?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            instances: [{ prompt: prompt + ", photorealistic, 8k, no text, no watermark" }],
-            parameters: { sampleCount: 1 }
-          })
-        });
-
-        if (!response.ok) {
-          const err = await response.text();
-          throw new Error(err);
-        }
-        const data = await response.json();
-        const base64Image = data.predictions?.[0]?.bytesBase64Encoded;
-        if (base64Image) return `data:image/jpeg;base64,${base64Image}`;
-        return null;
-      }
-
-      // OPTION 4: EXPLICIT IMAGEN 4 ULTRA with reference image support
-      if (modelType === 'imagen-4.0-ultra-generate-001') {
-        console.log("Using Nano Banana Pro (Imagen 4 Ultra) with reference images...");
-
-        // Build request body with reference images if provided
-        const requestBody: any = {
-          instances: [{
-            prompt: prompt + ", photorealistic, 8k, no text, no watermark, match the reference product exactly"
-          }],
-          parameters: { sampleCount: 1 }
-        };
-
-        // Add reference images for subject matching if provided
-        if (referenceImages && referenceImages.length > 0) {
-          requestBody.instances[0].referenceImages = referenceImages.map((base64, index) => ({
-            referenceId: index + 1,
-            referenceType: "REFERENCE_TYPE_SUBJECT",
-            referenceImage: {
-              bytesBase64Encoded: base64
-            }
-          }));
-          // Update prompt to reference the subject
-          requestBody.instances[0].prompt = `Using subject reference 1 for the exact product appearance: ${prompt}, photorealistic, 8k, no text, no watermark, match the product style and design exactly from the reference`;
-        }
-
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-ultra-generate-001:predict?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody)
-        });
-
-        if (!response.ok) {
-          const err = await response.text();
-          console.error("Imagen 4 Ultra error:", err);
-          // Fallback without reference images
-          console.log("Retrying without reference images...");
-          const retryResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-ultra-generate-001:predict?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              instances: [{ prompt: prompt + ", photorealistic, 8k, no text, no watermark" }],
-              parameters: { sampleCount: 1 }
-            })
-          });
-
-          if (!retryResponse.ok) {
-            const retryErr = await retryResponse.text();
-            throw new Error(retryErr);
-          }
-          const data = await retryResponse.json();
-          const base64Image = data.predictions?.[0]?.bytesBase64Encoded;
-          if (base64Image) return `data:image/jpeg;base64,${base64Image}`;
-          return null;
-        }
-
-        const data = await response.json();
-        const base64Image = data.predictions?.[0]?.bytesBase64Encoded;
-        if (base64Image) return `data:image/jpeg;base64,${base64Image}`;
-        return null;
-      }
-
-      // OPTION 5: GOOGLE IMAGEN 3.0 with reference image support (Discovery Fallback/Default)
-      console.log("Auto-Discovering correct Imagen model ID...");
-      const listResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-      if (!listResp.ok) {
-        throw new Error("Could not connect to Google API to check models. Check internet/key.");
-      }
-      const listData = await listResp.json();
-      const models = listData.models || [];
-      const imagenModel = models.find((m: any) => m.name.includes('imagen') && m.supportedGenerationMethods?.includes('predict'));
-
-      const targetModel = imagenModel ? imagenModel.name.replace('models/', '') : 'imagen-3.0-generate-001';
-      console.log("Selected Model:", targetModel);
-
-      // Build request body with reference images if provided
-      const requestBody: any = {
-        instances: [{ prompt: prompt + ", photorealistic, 8k, no text, no watermark" }],
-        parameters: { sampleCount: 1 }
-      };
-
-      // Add reference images for subject matching if provided
-      if (referenceImages && referenceImages.length > 0) {
-        requestBody.instances[0].referenceImages = referenceImages.map((base64, index) => ({
-          referenceId: index + 1,
-          referenceType: "REFERENCE_TYPE_SUBJECT",
-          referenceImage: {
-            bytesBase64Encoded: base64
-          }
-        }));
-        requestBody.instances[0].prompt = `Using subject reference 1 for the exact product appearance: ${prompt}, photorealistic, 8k, no text, no watermark, match the product exactly`;
-      }
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:predict?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!response.ok) {
-        const err = await response.text();
-        console.error("Imagen error with references:", err);
-        // Retry without reference images as fallback
-        if (referenceImages && referenceImages.length > 0) {
-          console.log("Retrying without reference images...");
-          const fallbackResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:predict?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              instances: [{ prompt: prompt + ", photorealistic, 8k, no text, no watermark" }],
-              parameters: { sampleCount: 1 }
-            })
-          });
-          if (!fallbackResponse.ok) {
-            throw new Error(err);
-          }
-          const fallbackData = await fallbackResponse.json();
-          const fallbackImage = fallbackData.predictions?.[0]?.bytesBase64Encoded;
-          if (fallbackImage) return `data:image/jpeg;base64,${fallbackImage}`;
-          return null;
-        }
-        throw new Error(err);
-      }
-
-      const data = await response.json();
-      const base64Image = data.predictions?.[0]?.bytesBase64Encoded;
-
-      if (base64Image) {
-        return `data:image/jpeg;base64,${base64Image}`;
-      }
-      return null;
-    } catch (e) {
-      console.error("Image Gen Error:", e);
-      const msg = e instanceof Error ? e.message : "Unknown error";
-      alert(`Image Generation Failed (${modelType}): ${msg}`);
+      return await callOpenAI(
+        `${prompt}. Photorealistic luxury editorial photography for Moscow Mix. No text or logos unless explicitly requested.`,
+        'image'
+      );
+    } catch (error) {
+      console.error('OpenAI image generation failed', error);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Image generation failed: ${message}`);
       return null;
     }
   };
 
   const generateFullPost = async () => {
-    const storedKey = localStorage.getItem('gemini_api_key');
-    const apiKey = storedKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-
-    if (!apiKey) {
-      alert("Please enter API Key in Settings first");
-      return;
-    }
     if (!blogTitle) {
       alert("Please enter a Title first");
       return;
@@ -1049,8 +701,6 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
     setGenerationStatus('Analyzing product images & Writing content...');
 
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
       const productsContext = config.products.map(p => `${p.name} (ID: ${p.id})`).join(', ');
 
       const prompt = `
@@ -1164,16 +814,7 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
            }
       `;
 
-      const parts: any[] = [{ text: prompt }];
-      if (targetProductBase64s.length > 0) {
-        targetProductBase64s.forEach(base64 => {
-          parts.push({ inlineData: { data: base64, mimeType: 'image/jpeg' } });
-        });
-      }
-
-      const result = await model.generateContent(parts);
-      const response = await result.response;
-      const text = response.text();
+      const text = await callOpenAI(prompt, 'text', targetProductBase64s);
 
       if (!text) throw new Error("No text generated");
 
@@ -1195,7 +836,7 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
       // 2. Generate Cover Image
       setGenerationStatus('Generating & Uploading Cover Image...');
       const coverPrompt = data.coverImagePrompt || `A professional, magazine-quality photo for a blog post about: ${blogTitle}. ${blogContentDirection || ''}. Photorealistic, 8k.`;
-      const coverUrlRaw = await generateImageFromPrompt(genAI, coverPrompt, imageGenModel, targetProductBase64s);
+      const coverUrlRaw = await generateImageFromPrompt(coverPrompt, imageGenModel, targetProductBase64s);
 
       let coverUrl = "";
       if (coverUrlRaw) {
@@ -1222,7 +863,7 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
         const imgPrompt = match[1]; // The prompt text
 
         setGenerationStatus(`Creating image: ${imgPrompt.substring(0, 20)}...`);
-        const imgBase64 = await generateImageFromPrompt(genAI, imgPrompt, imageGenModel, targetProductBase64s);
+        const imgBase64 = await generateImageFromPrompt(imgPrompt, imageGenModel, targetProductBase64s);
 
         if (imgBase64) {
           let imageUrl = await uploadBase64ToFirebase(imgBase64, 'blog-content');
@@ -1673,15 +1314,8 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
                     <textarea placeholder="e.g. Focus on the history of the Moscow Mule..." className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none h-20" value={blogContentDirection} onChange={e => setBlogContentDirection(e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Image Gen Model</label>
-                    <select
-                      value={imageGenModel}
-                      onChange={(e) => setImageGenModel(e.target.value as any)}
-                      className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none"
-                    >
-                      <option value="nano-banana-flash">⚡ Nano Banana 2.5 Flash (Fast & Affordable)</option>
-                      <option value="nano-banana-pro">🍌 Nano Banana Pro (Best Quality)</option>
-                    </select>
+                    <label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Image Generator</label>
+                    <div className="w-full bg-stone-950 border border-stone-800 p-3 text-stone-300">OpenAI GPT Image</div>
                   </div>
                 </div>
 
@@ -2006,16 +1640,19 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
                 )}
               </div>
               <div className="bg-stone-900 p-8 border border-stone-800 rounded-lg space-y-6">
-                <h3 className="text-white font-serif text-xl">API Configuration</h3>
+                <h3 className="text-white font-serif text-xl">OpenAI Configuration</h3>
+                <div className={`rounded border px-4 py-3 text-sm ${openAiConfigured ? 'border-green-900 bg-green-950/30 text-green-400' : 'border-amber-900 bg-amber-950/30 text-amber-300'}`}>
+                  {openAiConfigured === null ? 'Checking the secure server connection…' : openAiConfigured ? 'OpenAI is securely configured on Vercel.' : 'OpenAI still needs to be configured in Vercel.'}
+                </div>
                 <div className="space-y-2">
-                  <label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Gemini API Key</label>
+                  <label className="text-xs uppercase tracking-widest text-stone-500 font-bold">AI Access Code</label>
                   <div className="relative">
                     <input
                       type={showApiKey ? "text" : "password"}
                       className="w-full bg-stone-950 border border-stone-800 p-3 pr-10 text-white focus:border-copper-500 outline-none font-mono text-sm"
-                      value={apiKeyInput}
-                      onChange={(e) => setApiKeyInput(e.target.value)}
-                      placeholder="AIza..."
+                      value={aiAccessCode}
+                      onChange={(e) => setAiAccessCode(e.target.value)}
+                      placeholder="Enter the access code saved in Vercel"
                     />
                     <button
                       onClick={() => setShowApiKey(!showApiKey)}
@@ -2025,9 +1662,9 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`
                       {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
-                  <p className="text-xs text-stone-600">Required for Journal AI generation features.</p>
+                  <p className="text-xs text-stone-500">This is a separate access code—not your OpenAI key. The real API key stays private on Vercel.</p>
                 </div>
-                <button onClick={handleSaveApiKey} className="w-full bg-copper-900/30 text-copper-400 hover:bg-copper-900/50 py-3 px-4 rounded text-sm font-bold border border-copper-900">Save API Key</button>
+                <button onClick={handleSaveApiKey} className="w-full bg-copper-900/30 text-copper-400 hover:bg-copper-900/50 py-3 px-4 rounded text-sm font-bold border border-copper-900">Save AI Access Code</button>
               </div>
 
               {/* Emergency Cloud Sync Section */}
