@@ -369,7 +369,7 @@ const AdminPanel = () => {
 
       const text = await callOpenAI(`You are an expert SEO content strategist for Moscow Mix, a premium brand.
 
-Use current web search signals to identify popular, relevant search queries and content gaps in the pure copper drinkware, Moscow Mule, copper care, premium barware, natural fire starter, campfire, fireplace, and outdoor-living niches. Favor evergreen queries with clear informational or commercial intent. Do not chase unrelated trends.
+Prioritize established, popular evergreen search-query patterns and content gaps in the pure copper drinkware, Moscow Mule, copper care, premium barware, natural fire starter, campfire, fireplace, and outdoor-living niches. Favor clear informational and commercial intent. Do not chase unrelated trends.
 
 ACTUAL MOSCOW MIX PRODUCT CATALOG:
 ${catalogProducts}
@@ -439,7 +439,8 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
       }
     } catch (error) {
       console.error('Error generating ideas:', error);
-      alert('Failed to generate ideas. Please try again.');
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to generate ideas: ${message}`);
     } finally {
       setIsLoadingIdeas(false);
     }

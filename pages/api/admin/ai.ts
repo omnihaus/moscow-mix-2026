@@ -65,7 +65,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       model: textModel,
       input: [{ role: 'user', content }],
       reasoning: { effort: 'low' },
-      ...(operation === 'ideas' ? { tools: [{ type: 'web_search' as const }] } : {}),
     });
     return res.status(200).json({ text: response.output_text });
   } catch (error: any) {
