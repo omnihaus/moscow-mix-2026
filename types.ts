@@ -9,6 +9,7 @@ export interface Product {
   name: string;
   subtitle: string;
   price?: number; // Made optional
+  availability?: 'InStock' | 'OutOfStock';
   description: string;
   features: string[];
   category: ProductCategory;
@@ -38,6 +39,8 @@ export interface BlogPost {
   status?: PostStatus;
   scheduledDate?: string; // ISO date string for scheduled publish time
   publishedAt?: string; // ISO date string when actually published
+  updatedAt?: string; // ISO date string when editorial content was last changed
+  storageUpdatedAt?: string; // Legacy edit timestamp retained for existing posts
   // AEO Direct Answer Block
   aeoQuestion?: string;       // H2 heading (e.g., "What is the best way to clean copper mugs?")
   aeoAnswer?: string;         // 40-60 word direct answer paragraph

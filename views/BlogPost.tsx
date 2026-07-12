@@ -5,7 +5,7 @@ import React from 'react';
 import Link from 'next/link';
 import type { BlogPost as BlogPostData } from '../types';
 import { Clock, Calendar, User, Tag } from 'lucide-react';
-import SEO, { generateArticleSchema, generateFAQSchema } from '../components/SEO';
+import SEO, { generateArticleSchema, generateBreadcrumbSchema, generateFAQSchema } from '../components/SEO';
 import Breadcrumbs, { getBlogBreadcrumbs } from '../components/Breadcrumbs';
 
 // Helper to get the URL-safe slug for a post
@@ -13,7 +13,7 @@ export function getPostSlug(post: { id: string; slug?: string }): string {
   return post.slug || post.id;
 }
 
-export default function BlogPost({ post, publishedAt }: { post: BlogPostData; publishedAt: string }) {
+export default function BlogPost({ post, publishedAt, modifiedAt, relatedPosts = [] }: { post: BlogPostData; publishedAt: string; modifiedAt: string; relatedPosts?: BlogPostData[] }) {
   // Use slug for the canonical URL
   const postSlug = getPostSlug(post);
   const canonicalUrl = `https://www.moscowmix.com/journal/${postSlug}`;
@@ -22,7 +22,7 @@ export default function BlogPost({ post, publishedAt }: { post: BlogPostData; pu
   const contentWithoutPromptCaptions = post.content.replace(
     /<span[^>]*class=["'][^"']*caption[^"']*["'][^>]*>[\s\S]*?<\/span>/gi,
     ''
-  );
+  ).replace(/<img(?![^>]*\bloading=)([^>]*)>/gi, '<img loading="lazy" decoding="async"$1>');
 
   // Generate article schema
   const articleSchema = generateArticleSchema({
@@ -31,6 +31,7 @@ export default function BlogPost({ post, publishedAt }: { post: BlogPostData; pu
     image: post.coverImage,
     url: canonicalUrl,
     datePublished: publishedAt,
+    dateModified: modifiedAt,
     author: post.author
   });
 
@@ -40,12 +41,12 @@ export default function BlogPost({ post, publishedAt }: { post: BlogPostData; pu
     : null;
 
   // Combine schemas into an array for JSON-LD
-  const combinedSchema = faqSchema
-    ? [articleSchema, faqSchema]
-    : articleSchema;
-
   // Generate breadcrumbs
   const breadcrumbItems = getBlogBreadcrumbs(post.title, postSlug);
+  const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
+  const combinedSchema = faqSchema
+    ? [articleSchema, breadcrumbSchema, faqSchema]
+    : [articleSchema, breadcrumbSchema];
 
   return (
     <div className="bg-stone-950 min-h-screen pt-32 pb-24">
@@ -159,7 +160,7 @@ export default function BlogPost({ post, publishedAt }: { post: BlogPostData; pu
 
         {/* Hero Image */}
         <div className="w-full aspect-video bg-stone-900 mb-16 overflow-hidden">
-          <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover" />
+          <img src={post.coverImage} alt={post.title} loading="eager" decoding="async" className="w-full h-full object-cover" />
         </div>
 
         {/* AEO Direct Answer Block */}
@@ -182,6 +183,22 @@ export default function BlogPost({ post, publishedAt }: { post: BlogPostData; pu
           className="blog-content font-sans text-lg"
           dangerouslySetInnerHTML={{ __html: contentWithoutPromptCaptions }}
         />
+
+        {relatedPosts.length > 0 && (
+          <aside className="mt-20 pt-12 border-t border-stone-800" aria-labelledby="related-articles-heading">
+            <h2 id="related-articles-heading" className="font-serif text-3xl text-white mb-8">Related Journal Stories</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {relatedPosts.map((related) => (
+                <Link key={related.id} href={`/journal/${getPostSlug(related)}`} className="group block">
+                  <div className="aspect-[3/2] overflow-hidden bg-stone-900 mb-4">
+                    <img src={related.coverImage} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <h3 className="font-serif text-xl text-white group-hover:text-copper-400 transition-colors">{related.title}</h3>
+                </Link>
+              ))}
+            </div>
+          </aside>
+        )}
 
         {/* Footer */}
         <div className="mt-24 pt-12 border-t border-stone-800 flex justify-between items-center">

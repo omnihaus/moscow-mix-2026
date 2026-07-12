@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: 'Premium Pure Copper Mugs & Drinkware',
   description: 'Shop 100% pure copper mugs, water bottles, and jugs crafted for cold drinks, considered hydration, and lasting use.',
   alternates: { canonical: '/shop/copper' },
+  openGraph: { type: 'website', siteName: 'Moscow Mix', images: ['/og-image.jpg'], url: '/shop/copper', title: 'Premium Pure Copper Mugs & Drinkware', description: 'Shop 100% pure copper mugs, water bottles, and jugs crafted for cold drinks, considered hydration, and lasting use.' },
 };
 
 export default function CopperShopPage() {

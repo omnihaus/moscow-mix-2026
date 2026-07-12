@@ -1,19 +1,19 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { useSiteConfig } from '../context/SiteConfigContext';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getPostSlug } from './BlogPost';
+import { GRID_POSTS_PAGE_1, POSTS_PER_PAGE } from '../lib/journal-pagination';
 
-// Pagination config
-const GRID_POSTS_PAGE_1 = 6; // 2 rows of 3 below the featured post
-const POSTS_PER_PAGE = 9;   // 3 rows of 3 for subsequent pages
+function pageHref(page: number): string {
+  return page === 1 ? '/journal' : `/journal/page/${page}`;
+}
 
-export default function BlogList() {
+export default function BlogList({ currentPage = 1 }: { currentPage?: number }) {
   const { config } = useSiteConfig();
-  const [currentPage, setCurrentPage] = useState(1);
 
   // Filter posts to only show published ones on the public site
   const visiblePosts = config.blogPosts.filter(post => {
@@ -49,12 +49,6 @@ export default function BlogList() {
 
   const currentPosts = getPagePosts();
 
-  const goToPage = (page: number) => {
-    setCurrentPage(page);
-    // Scroll to top of grid section
-    window.scrollTo({ top: 400, behavior: 'smooth' });
-  };
-
   return (
     <div className="bg-stone-950 min-h-screen pt-24 pb-24">
       {/* Header */}
@@ -73,6 +67,8 @@ export default function BlogList() {
                 <img
                   src={featuredPost.coverImage}
                   alt={featuredPost.title}
+                  loading="eager"
+                  decoding="async"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-stone-950/20 group-hover:bg-transparent transition-colors"></div>
@@ -106,6 +102,8 @@ export default function BlogList() {
                   <img
                     src={post.coverImage}
                     alt={post.title}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-80 group-hover:opacity-100"
                   />
                 </div>
@@ -129,42 +127,43 @@ export default function BlogList() {
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-2 mt-16 pt-16 border-t border-stone-900">
             {/* Previous Button */}
-            <button
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
+            <Link
+              href={pageHref(Math.max(1, currentPage - 1))}
+              aria-disabled={currentPage === 1}
               className={`p-3 border border-stone-800 rounded transition-colors ${currentPage === 1
                 ? 'text-stone-700 cursor-not-allowed'
                 : 'text-stone-400 hover:text-white hover:border-copper-500'
                 }`}
             >
               <ChevronLeft size={18} />
-            </button>
+            </Link>
 
             {/* Page Numbers */}
             {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-              <button
+              <Link
                 key={page}
-                onClick={() => goToPage(page)}
+                href={pageHref(page)}
+                aria-current={page === currentPage ? 'page' : undefined}
                 className={`w-10 h-10 flex items-center justify-center text-sm font-bold uppercase tracking-widest rounded transition-colors ${page === currentPage
                   ? 'bg-copper-600 text-white'
                   : 'text-stone-400 hover:text-white border border-stone-800 hover:border-copper-500'
                   }`}
               >
                 {page}
-              </button>
+              </Link>
             ))}
 
             {/* Next Button */}
-            <button
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
+            <Link
+              href={pageHref(Math.min(totalPages, currentPage + 1))}
+              aria-disabled={currentPage === totalPages}
               className={`p-3 border border-stone-800 rounded transition-colors ${currentPage === totalPages
                 ? 'text-stone-700 cursor-not-allowed'
                 : 'text-stone-400 hover:text-white hover:border-copper-500'
                 }`}
             >
               <ChevronRight size={18} />
-            </button>
+            </Link>
           </div>
         )}
 

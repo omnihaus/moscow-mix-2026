@@ -2,14 +2,15 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 import { useSiteConfig } from '../context/SiteConfigContext';
-import type { Product } from '../types';
-import SEO, { generateProductSchema } from '../components/SEO';
+import type { BlogPost, Product } from '../types';
+import SEO, { generateBreadcrumbSchema, generateProductSchema } from '../components/SEO';
 import Breadcrumbs, { getProductBreadcrumbs } from '../components/Breadcrumbs';
 import FAQSection, { getProductFAQs } from '../components/FAQSection';
 
-export default function ProductDetail({ product }: { product: Product }) {
+export default function ProductDetail({ product, relatedPosts = [] }: { product: Product; relatedPosts?: BlogPost[] }) {
   const { config } = useSiteConfig();
 
   // Generate product schema
@@ -20,7 +21,9 @@ export default function ProductDetail({ product }: { product: Product }) {
     price: product.price,
     url: `https://www.moscowmix.com/product/${product.id}`,
     rating: product.rating,
-    reviewCount: product.reviews
+    reviewCount: product.reviews,
+    amazonUrl: product.amazonUrl,
+    availability: product.availability || 'InStock'
   });
 
   // Determine which video to show based on product ID/Name keywords
@@ -41,6 +44,7 @@ export default function ProductDetail({ product }: { product: Product }) {
   // Get product-specific FAQs based on product ID
   const productFaqData = getProductFAQs(product.id);
   const breadcrumbItems = getProductBreadcrumbs(product.name, product.category, product.id);
+  const combinedSchema = [productSchema, generateBreadcrumbSchema(breadcrumbItems)];
 
   return (
     <div className="pt-32 pb-24 min-h-screen bg-stone-950 text-white">
@@ -50,7 +54,7 @@ export default function ProductDetail({ product }: { product: Product }) {
         image={product.images[0]}
         url={`https://www.moscowmix.com/product/${product.id}`}
         type="product"
-        schemaData={productSchema}
+        schemaData={combinedSchema}
       />
 
       {/* Breadcrumbs */}
@@ -66,6 +70,8 @@ export default function ProductDetail({ product }: { product: Product }) {
             <img
               src={product.images[0]}
               alt={product.name}
+              loading="eager"
+              decoding="async"
               className="w-full h-full object-contain p-8"
             />
           ) : (
@@ -88,6 +94,15 @@ export default function ProductDetail({ product }: { product: Product }) {
             {product.description}
           </p>
 
+          {typeof product.price === 'number' && product.price > 0 && (
+            <p className="text-2xl text-white mb-8" aria-label={`Price ${product.price.toFixed(2)} US dollars`}>
+              ${product.price.toFixed(2)} <span className="text-sm text-stone-500">USD</span>
+            </p>
+          )}
+          <p className={`text-sm uppercase tracking-widest mb-8 ${product.availability === 'OutOfStock' ? 'text-red-400' : 'text-stone-500'}`}>
+            {product.availability === 'OutOfStock' ? 'Currently unavailable' : 'Available on Amazon'}
+          </p>
+
           {/* Features */}
           <ul className="mb-8 space-y-3">
             {product.features.map((feature, i) => (
@@ -103,7 +118,7 @@ export default function ProductDetail({ product }: { product: Product }) {
             <a
               href={product.amazonUrl || '#'}
               target="_blank"
-              rel="noopener noreferrer"
+              rel="noopener noreferrer sponsored"
               className="flex-1 bg-gradient-to-r from-[#FF9900] to-[#FFB84D] hover:from-[#e88b00] hover:to-[#e8a644] text-stone-900 font-bold uppercase tracking-widest text-sm transition-all h-14 flex items-center justify-center gap-2 rounded-sm shadow-lg shadow-orange-900/20"
             >
               Buy on Amazon <ExternalLink size={16} />
@@ -148,6 +163,24 @@ export default function ProductDetail({ product }: { product: Product }) {
         title={productFaqData.title}
         subtitle={productFaqData.subtitle}
       />
+
+      {relatedPosts.length > 0 && (
+        <section className="max-w-7xl mx-auto px-6 pb-24" aria-labelledby="product-guides-heading">
+          <div className="border-t border-stone-900 pt-16">
+            <h2 id="product-guides-heading" className="font-serif text-3xl md:text-4xl text-white mb-10">Guides for This Collection</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {relatedPosts.map((post) => (
+                <Link key={post.id} href={`/journal/${post.slug || post.id}`} className="group block">
+                  <div className="aspect-[3/2] bg-stone-900 overflow-hidden mb-4">
+                    <img src={post.coverImage} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <h3 className="font-serif text-2xl text-white group-hover:text-copper-400 transition-colors">{post.title}</h3>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

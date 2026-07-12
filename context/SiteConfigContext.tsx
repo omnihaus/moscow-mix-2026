@@ -377,7 +377,8 @@ export const SiteConfigProvider = ({
   // This prevents ghost posts that appear locally but aren't persisted
 
   const addBlogPost = async (post: BlogPost): Promise<void> => {
-    const newPost = { ...post, author: post.author || 'Michael B.' };
+    const updatedAt = new Date().toISOString();
+    const newPost = { ...post, author: post.author || 'Michael B.', updatedAt };
     const newConfig = { ...config, blogPosts: [newPost, ...config.blogPosts] };
 
     console.log('addBlogPost: Saving to Firebase FIRST...', { title: post.title, totalPosts: newConfig.blogPosts.length });
@@ -388,7 +389,7 @@ export const SiteConfigProvider = ({
 
     try {
       const postRef = doc(db, "moscow_mix", "live_site", "posts", newPost.id);
-      await setDoc(postRef, removeUndefined({ ...newPost, storageUpdatedAt: new Date().toISOString() }));
+      await setDoc(postRef, removeUndefined({ ...newPost, updatedAt, storageUpdatedAt: updatedAt }));
 
       console.log('addBlogPost: Firebase save completed successfully');
 
@@ -409,9 +410,11 @@ export const SiteConfigProvider = ({
   };
 
   const updateBlogPost = async (post: BlogPost): Promise<void> => {
+    const updatedAt = new Date().toISOString();
+    const updatedPost = { ...post, updatedAt };
     const newConfig = {
       ...config,
-      blogPosts: config.blogPosts.map(p => p.id === post.id ? post : p)
+      blogPosts: config.blogPosts.map(p => p.id === post.id ? updatedPost : p)
     };
 
     console.log('updateBlogPost: Saving to Firebase FIRST...', { title: post.title });
@@ -422,7 +425,7 @@ export const SiteConfigProvider = ({
 
     try {
       const postRef = doc(db, "moscow_mix", "live_site", "posts", post.id);
-      await setDoc(postRef, removeUndefined({ ...post, storageUpdatedAt: new Date().toISOString() }));
+      await setDoc(postRef, removeUndefined({ ...updatedPost, storageUpdatedAt: updatedAt }));
 
       console.log('updateBlogPost: Firebase save completed successfully');
 

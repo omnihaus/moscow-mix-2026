@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import BlogPostPage from '@/views/BlogPost';
-import { getPostSlug, getPublishedAt, getSiteConfig, isPublished } from '@/lib/site-data';
+import { getModifiedAt, getPostSlug, getPublishedAt, getSiteConfig, isPublished } from '@/lib/site-data';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -38,6 +38,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       url: canonical,
       images: post.coverImage ? [{ url: post.coverImage, alt: post.title }] : undefined,
       publishedTime: getPublishedAt(post),
+      modifiedTime: getModifiedAt(post),
       authors: [post.author],
     },
     twitter: {
@@ -54,5 +55,18 @@ export default async function JournalPostPage({ params }: PageProps) {
   const post = await findPost(slug);
   if (!post) notFound();
 
-  return <BlogPostPage post={post} publishedAt={getPublishedAt(post)} />;
+  const config = await getSiteConfig();
+  const postTerms = new Set([...(post.tags || []), ...post.title.toLowerCase().split(/\W+/)].map((term) => term.toLowerCase()));
+  const relatedPosts = config.blogPosts
+    .filter((candidate) => isPublished(candidate) && candidate.id !== post.id)
+    .map((candidate) => ({
+      post: candidate,
+      score: [...(candidate.tags || []), ...candidate.title.toLowerCase().split(/\W+/)]
+        .filter((term) => postTerms.has(term.toLowerCase())).length,
+    }))
+    .sort((a, b) => b.score - a.score || new Date(getPublishedAt(b.post)).getTime() - new Date(getPublishedAt(a.post)).getTime())
+    .slice(0, 3)
+    .map(({ post: candidate }) => candidate);
+
+  return <BlogPostPage post={post} publishedAt={getPublishedAt(post)} modifiedAt={getModifiedAt(post)} relatedPosts={relatedPosts} />;
 }

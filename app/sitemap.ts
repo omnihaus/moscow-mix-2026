@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { getPostSlug, getPublishedAt, getSiteConfig, isPublished } from '@/lib/site-data';
+import { getModifiedAt, getPostSlug, getSiteConfig, isPublished } from '@/lib/site-data';
 
 const SITE_URL = 'https://www.moscowmix.com';
 
@@ -18,14 +18,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: `${SITE_URL}/product/${encodeURIComponent(product.id)}`,
     changeFrequency: 'weekly',
     priority: 0.8,
+    images: product.images.filter(Boolean),
   }));
 
-  const articlePages: MetadataRoute.Sitemap = config.blogPosts.filter((post) => isPublished(post)).map((post) => ({
+  const publishedPosts = config.blogPosts.filter((post) => isPublished(post));
+  const pageCount = 1 + Math.ceil(Math.max(0, Math.max(0, publishedPosts.length - 1) - 6) / 9);
+  const paginationPages: MetadataRoute.Sitemap = Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) => ({
+    url: `${SITE_URL}/journal/page/${index + 2}`,
+    changeFrequency: 'weekly',
+    priority: 0.6,
+  }));
+
+  const articlePages: MetadataRoute.Sitemap = publishedPosts.map((post) => ({
     url: `${SITE_URL}/journal/${encodeURIComponent(getPostSlug(post))}`,
-    lastModified: new Date(getPublishedAt(post)),
+    lastModified: new Date(getModifiedAt(post)),
     changeFrequency: 'monthly',
     priority: 0.7,
+    images: post.coverImage ? [post.coverImage] : [],
   }));
 
-  return [...staticPages, ...productPages, ...articlePages];
+  return [...staticPages, ...paginationPages, ...productPages, ...articlePages];
 }

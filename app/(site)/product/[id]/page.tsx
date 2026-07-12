@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import ProductDetail from '@/views/ProductDetail';
-import { getSiteConfig } from '@/lib/site-data';
+import { getPublishedAt, getSiteConfig, isPublished } from '@/lib/site-data';
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -41,5 +41,17 @@ export default async function ProductPage({ params }: PageProps) {
   const { id } = await params;
   const product = await findProduct(id);
   if (!product) notFound();
-  return <ProductDetail product={product} />;
+  const config = await getSiteConfig();
+  const productTerms = new Set(`${product.name} ${product.category}`.toLowerCase().split(/\W+/).filter((term) => term.length > 2));
+  const relatedPosts = config.blogPosts
+    .filter((post) => isPublished(post))
+    .map((post) => ({
+      post,
+      score: `${post.title} ${post.excerpt} ${(post.tags || []).join(' ')}`.toLowerCase().split(/\W+/)
+        .filter((term) => productTerms.has(term)).length,
+    }))
+    .sort((a, b) => b.score - a.score || new Date(getPublishedAt(b.post)).getTime() - new Date(getPublishedAt(a.post)).getTime())
+    .slice(0, 3)
+    .map(({ post }) => post);
+  return <ProductDetail product={product} relatedPosts={relatedPosts} />;
 }

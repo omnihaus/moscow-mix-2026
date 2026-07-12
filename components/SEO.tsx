@@ -50,7 +50,7 @@ export function generateOrganizationSchema() {
         "@type": "Organization",
         "name": "Moscow Mix",
         "url": "https://www.moscowmix.com",
-        "logo": "https://www.moscowmix.com/logo.png",
+        "logo": "https://www.moscowmix.com/apple-touch-icon.png",
         "description": DEFAULT_DESCRIPTION,
         "sameAs": [
             "https://www.instagram.com/moscowmix",
@@ -67,6 +67,8 @@ export function generateProductSchema(product: {
     url: string;
     rating?: number;
     reviewCount?: number;
+    amazonUrl?: string;
+    availability?: 'InStock' | 'OutOfStock';
 }) {
     return {
         "@context": "https://schema.org",
@@ -79,6 +81,20 @@ export function generateProductSchema(product: {
             "@type": "Brand",
             "name": "Moscow Mix"
         },
+        ...(typeof product.price === 'number' && product.price > 0 && {
+            "offers": {
+                "@type": "Offer",
+                "url": product.amazonUrl || product.url,
+                "priceCurrency": "USD",
+                "price": product.price.toFixed(2),
+                "availability": `https://schema.org/${product.availability || 'InStock'}`,
+                "itemCondition": "https://schema.org/NewCondition",
+                "seller": {
+                    "@type": "Organization",
+                    "name": "Moscow Mix"
+                }
+            }
+        }),
         ...(product.rating && product.reviewCount && product.reviewCount > 0 && {
             "aggregateRating": {
                 "@type": "AggregateRating",
@@ -95,6 +111,7 @@ export function generateArticleSchema(article: {
     image: string;
     url: string;
     datePublished: string;
+    dateModified?: string;
     author: string;
 }) {
     return {
@@ -104,7 +121,12 @@ export function generateArticleSchema(article: {
         "description": article.description,
         "image": article.image,
         "url": article.url,
+        "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": article.url
+        },
         "datePublished": article.datePublished,
+        "dateModified": article.dateModified || article.datePublished,
         "author": {
             "@type": "Person",
             "name": article.author
@@ -114,7 +136,7 @@ export function generateArticleSchema(article: {
             "name": "Moscow Mix",
             "logo": {
                 "@type": "ImageObject",
-                "url": "https://www.moscowmix.com/logo.png"
+                "url": "https://www.moscowmix.com/apple-touch-icon.png"
             }
         }
     };

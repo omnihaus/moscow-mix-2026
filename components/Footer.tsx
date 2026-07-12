@@ -2,7 +2,6 @@
 'use client';
 
 import React from 'react';
-import { Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useSiteConfig } from '../context/SiteConfigContext';
 
@@ -61,9 +60,6 @@ export default function Footer() {
           <div className="flex gap-6 mt-4 md:mt-0 items-center">
             <Link href="/privacy" className="text-stone-600 text-xs hover:text-stone-400">Privacy Policy</Link>
             <Link href="/terms" className="text-stone-600 text-xs hover:text-stone-400">Terms of Service</Link>
-            <Link href="/admin" className="text-stone-800 hover:text-copper-900 transition-colors" title="Admin Login">
-              <Lock size={12} />
-            </Link>
           </div>
         </div>
       </div>

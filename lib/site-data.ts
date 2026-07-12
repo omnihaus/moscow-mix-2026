@@ -132,6 +132,10 @@ export function getPublishedAt(post: BlogPost): string {
   return '2025-01-01T12:00:00.000Z';
 }
 
+export function getModifiedAt(post: BlogPost): string {
+  return post.updatedAt || post.storageUpdatedAt || getPublishedAt(post);
+}
+
 export function toPublicShellConfig(config: SiteConfig): SiteConfig {
   return {
     heroHeadline: config.heroHeadline,

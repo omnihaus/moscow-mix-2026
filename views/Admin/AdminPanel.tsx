@@ -195,7 +195,7 @@ const AdminPanel = () => {
 
   // --- PRODUCT LOGIC ---
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
-    name: '', category: ProductCategory.COPPER, price: 0, description: '', amazonUrl: '', features: []
+    name: '', category: ProductCategory.COPPER, price: 0, availability: 'InStock', description: '', amazonUrl: '', features: []
   });
   const [isEditingProduct, setIsEditingProduct] = useState(false);
   const [featureInput, setFeatureInput] = useState('');
@@ -286,7 +286,8 @@ const AdminPanel = () => {
       id: prodId,
       name: newProduct.name!,
       subtitle: newProduct.subtitle || 'Premium Quality',
-      price: 0,
+      price: newProduct.price,
+      availability: newProduct.availability || 'InStock',
       description: newProduct.description!,
       features: newProduct.features || [],
       category: newProduct.category as ProductCategory,
@@ -307,7 +308,7 @@ const AdminPanel = () => {
       alert("Product Added Successfully");
     }
 
-    setNewProduct({ name: '', category: ProductCategory.COPPER, description: '', amazonUrl: '', features: [] });
+    setNewProduct({ name: '', category: ProductCategory.COPPER, price: 0, availability: 'InStock', description: '', amazonUrl: '', features: [] });
     setIsEditingProduct(false);
   };
 
@@ -1178,7 +1179,7 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
               <div id="product-form" className="bg-stone-900 p-8 border border-stone-800 rounded-lg">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-white font-serif text-xl">{isEditingProduct ? 'Edit Product' : 'Add New Product'}</h3>
-                  {isEditingProduct && (<button onClick={() => { setIsEditingProduct(false); setNewProduct({ name: '', category: ProductCategory.COPPER, description: '', amazonUrl: '', features: [] }); }} className="text-stone-500 hover:text-white text-xs uppercase tracking-widest">Cancel Edit</button>)}
+                  {isEditingProduct && (<button onClick={() => { setIsEditingProduct(false); setNewProduct({ name: '', category: ProductCategory.COPPER, price: 0, availability: 'InStock', description: '', amazonUrl: '', features: [] }); }} className="text-stone-500 hover:text-white text-xs uppercase tracking-widest">Cancel Edit</button>)}
                 </div>
                 <div className="grid grid-cols-2 gap-6 mb-6">
                   <input type="text" placeholder="Product Name" className="bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none" value={newProduct.name} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} />
@@ -1245,6 +1246,21 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
                 </div>
 
                 <div className="mb-6"><label className="text-xs uppercase tracking-widest text-stone-500 font-bold block mb-2">Amazon Product URL</label><input type="url" placeholder="https://amazon.com/dp/..." className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none" value={newProduct.amazonUrl} onChange={e => setNewProduct({ ...newProduct, amazonUrl: e.target.value })} /></div>
+
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="text-xs uppercase tracking-widest text-stone-500 font-bold block mb-2">Current Price (USD)</label>
+                    <input type="number" min="0" step="0.01" placeholder="34.95" className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none" value={newProduct.price || ''} onChange={e => setNewProduct({ ...newProduct, price: parseFloat(e.target.value) || undefined })} />
+                    <span className="text-stone-600 text-xs mt-1 block">Only enter a price you keep current. It will appear on the product page and in Google product data.</span>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-widest text-stone-500 font-bold block mb-2">Availability</label>
+                    <select className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none" value={newProduct.availability || 'InStock'} onChange={e => setNewProduct({ ...newProduct, availability: e.target.value as 'InStock' | 'OutOfStock' })}>
+                      <option value="InStock">In stock</option>
+                      <option value="OutOfStock">Out of stock</option>
+                    </select>
+                  </div>
+                </div>
 
                 {/* Rating & Reviews Fields */}
                 <div className="grid grid-cols-2 gap-4 mb-6">

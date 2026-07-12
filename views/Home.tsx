@@ -7,7 +7,7 @@ import ProductCard from '../components/ProductCard';
 import Link from 'next/link';
 import { Flame, Droplets, ShieldCheck, Leaf, Wind, Snowflake, CheckCircle } from 'lucide-react';
 import { useSiteConfig } from '../context/SiteConfigContext';
-import SEO from '../components/SEO';
+import SEO, { generateOrganizationSchema } from '../components/SEO';
 import FAQSection, { HOMEPAGE_FAQS } from '../components/FAQSection';
 import ReviewsSection, { SAMPLE_REVIEWS } from '../components/ReviewsSection';
 
@@ -22,6 +22,7 @@ export default function Home() {
             title="Pure Copper Mugs and Natural Fire Starters"
             description="Moscow Mix creates solid 100% pure copper mugs and natural fire starters with authenticity and purity at their core. No plated copper, no fillers, no synthetic shortcuts."
             url="https://www.moscowmix.com"
+            schemaData={generateOrganizationSchema()}
          />
          <Hero />
 
