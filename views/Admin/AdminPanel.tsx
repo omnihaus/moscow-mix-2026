@@ -451,7 +451,7 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`);
       const file = e.target.files[0];
       const url = await uploadToFirebase(file, 'blog-content');
       if (url) {
-        const imgHtml = `<div class="image-block"><img src="${url}" alt="Blog Image" /><span class="caption">Image Caption</span></div><br/>`;
+        const imgHtml = `<div class="image-block"><img src="${url}" alt="Moscow Mix journal image" /></div><br/>`;
         execCmd('insertHTML', imgHtml);
       }
     }
@@ -648,7 +648,7 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`);
           const result = reader.result as string;
           resolve({
             preview: result,
-            base64: result.split(',')[1]
+            base64: result
           });
         };
         reader.readAsDataURL(file);
@@ -676,12 +676,13 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`);
   const generateImageFromPrompt = async (
     prompt: string,
     _modelType?: string,
-    _referenceImages?: string[]
+    referenceImages?: string[]
   ): Promise<string | null> => {
     try {
       return await callOpenAI(
         `${prompt}. Photorealistic luxury editorial photography for Moscow Mix. No text or logos unless explicitly requested.`,
-        'image'
+        'image',
+        referenceImages || []
       );
     } catch (error) {
       console.error('OpenAI image generation failed', error);
@@ -882,10 +883,19 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`);
       ]);
       if (coverUrl) setBlogCover(coverUrl);
 
+      const conciseAltText = [targetProduct || 'Moscow Mix product', blogTitle]
+        .join(' ')
+        .replace(/[^a-zA-Z0-9\s-]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .slice(0, 10)
+        .join(' ');
+
       inlineJobs.forEach((job, index) => {
         const imageUrl = inlineUrls[index];
         const imgTag = imageUrl
-          ? `<div class="image-block"><img src="${imageUrl}" alt="${job.originalPrompt}" /><span class="caption">${job.originalPrompt.split('.')[0]}</span></div>`
+          ? `<div class="image-block"><img src="${imageUrl}" alt="${conciseAltText}" /></div>`
           : '';
         finalContent = finalContent.replace(job.fullMatch, imgTag);
       });

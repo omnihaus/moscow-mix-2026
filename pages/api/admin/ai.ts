@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import OpenAI from 'openai';
+import OpenAI, { toFile } from 'openai';
 
 export const config = {
   api: { bodyParser: { sizeLimit: '20mb' } },
@@ -30,13 +30,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { operation, prompt, images = [] } = req.body || {};
 
     if (operation === 'image') {
-      const result = await openai.images.generate({
+      const referenceFiles = await Promise.all(images.slice(0, 4).map(async (image: string, index: number) => {
+        const value = String(image);
+        const match = value.match(/^data:([^;]+);base64,(.+)$/);
+        const mimeType = match?.[1] || 'image/jpeg';
+        const base64 = match?.[2] || value;
+        const extension = mimeType.includes('png') ? 'png' : 'jpg';
+        return toFile(Buffer.from(base64, 'base64'), `moscow-mix-reference-${index + 1}.${extension}`, { type: mimeType });
+      }));
+
+      const commonOptions = {
         model: imageModel,
-        prompt: String(prompt),
-        size: '1536x1024',
-        quality: 'medium',
-        output_format: 'jpeg',
-      });
+        prompt: `${String(prompt)} Use only the supplied Moscow Mix product references. Preserve the exact product silhouette, proportions, material, finish, hammer pattern, rim, handle geometry, attachment points, and color. Do not invent or substitute another copper product.`,
+        size: '1536x1024' as const,
+        quality: 'medium' as const,
+        output_format: 'jpeg' as const,
+      };
+
+      const result = referenceFiles.length > 0
+        ? await openai.images.edit({ ...commonOptions, image: referenceFiles })
+        : await openai.images.generate(commonOptions);
       const base64 = result.data?.[0]?.b64_json;
       if (!base64) throw new Error('OpenAI returned no image.');
       return res.status(200).json({ image: `data:image/jpeg;base64,${base64}` });

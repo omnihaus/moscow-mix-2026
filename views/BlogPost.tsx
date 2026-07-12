@@ -17,6 +17,12 @@ export default function BlogPost({ post, publishedAt }: { post: BlogPostData; pu
   // Use slug for the canonical URL
   const postSlug = getPostSlug(post);
   const canonicalUrl = `https://www.moscowmix.com/journal/${postSlug}`;
+  // Remove legacy AI prompt captions from older posts. They were generation
+  // instructions, not useful editorial captions or SEO content.
+  const contentWithoutPromptCaptions = post.content.replace(
+    /<span[^>]*class=["'][^"']*caption[^"']*["'][^>]*>[\s\S]*?<\/span>/gi,
+    ''
+  );
 
   // Generate article schema
   const articleSchema = generateArticleSchema({
@@ -110,15 +116,6 @@ export default function BlogPost({ post, publishedAt }: { post: BlogPostData; pu
             height: auto;
             display: block;
         }
-        .blog-content .caption {
-            display: block;
-            text-align: center;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: #78716c; /* stone-500 */
-            margin-top: 0.75rem;
-        }
         /* Drop Cap for first paragraph only */
         .blog-content > p:first-of-type::first-letter {
             float: left;
@@ -183,7 +180,7 @@ export default function BlogPost({ post, publishedAt }: { post: BlogPostData; pu
         {/* Content Rendered as HTML */}
         <div
           className="blog-content font-sans text-lg"
-          dangerouslySetInnerHTML={{ __html: post.content }}
+          dangerouslySetInnerHTML={{ __html: contentWithoutPromptCaptions }}
         />
 
         {/* Footer */}
