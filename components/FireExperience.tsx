@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { Flame, Wind, Leaf, Timer, ArrowRight, BookOpen, CheckCircle } from 'lucide-react';
 
 interface FireTip {
@@ -161,7 +161,7 @@ export default function FireExperience() {
                         {/* CTA */}
                         <div className="flex-shrink-0">
                             <Link
-                                to="/journal/art-of-fire"
+                                href="/journal/natural-fire-starters-work"
                                 className="group/btn inline-flex items-center gap-3 bg-orange-600 hover:bg-orange-500 text-white font-bold uppercase tracking-widest text-sm px-8 py-4 rounded-sm transition-all duration-300 shadow-lg shadow-orange-900/20"
                             >
                                 Read Guide

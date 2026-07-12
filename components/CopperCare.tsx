@@ -1,8 +1,8 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { Droplets, Sparkles, Shield, Clock, ArrowRight, BookOpen } from 'lucide-react';
 import { useSiteConfig } from '../context/SiteConfigContext';
-import { getPostSlug } from '../pages/BlogPost';
+import { getPostSlug } from '../views/BlogPost';
 
 interface CareTip {
     icon: React.ReactNode;
@@ -52,7 +52,7 @@ export default function CopperCare() {
     // Use dynamic content if post found, otherwise use fallback
     const postTitle = copperCarePost?.title || "How to Care for Copper: The Complete Guide";
     const postExcerpt = copperCarePost?.excerpt || "Discover our simple lemon and salt method for restoring your copper to its original brilliance.";
-    const postSlug = copperCarePost ? getPostSlug(copperCarePost) : 'copper-care-guide';
+    const postSlug = copperCarePost ? getPostSlug(copperCarePost) : 'copper-care-complete-guide';
 
     return (
         <section className="relative overflow-hidden">
@@ -133,7 +133,7 @@ export default function CopperCare() {
                         {/* CTA - Now uses dynamic slug */}
                         <div className="flex-shrink-0">
                             <Link
-                                to={`/journal/${postSlug}`}
+                                href={`/journal/${postSlug}`}
                                 className="group/btn inline-flex items-center gap-3 bg-copper-600 hover:bg-copper-500 text-white font-bold uppercase tracking-widest text-sm px-8 py-4 rounded-sm transition-all duration-300 shadow-lg shadow-copper-900/20"
                             >
                                 Read Guide

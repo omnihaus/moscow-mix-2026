@@ -1,9 +1,11 @@
 
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { Menu, X, Search, ArrowRight } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import Link from 'next/link';
 import { useSiteConfig } from '../context/SiteConfigContext';
-import { getPostSlug } from '../pages/BlogPost';
+import { getPostSlug } from '../views/BlogPost';
 
 export default function Navbar() {
   const { config } = useSiteConfig();
@@ -46,14 +48,14 @@ export default function Navbar() {
 
         {/* Desktop Links (Left) */}
         <div className="hidden md:flex gap-8 items-center">
-          <Link to="/shop/copper" className="text-sm uppercase tracking-widest text-stone-300 hover:text-white transition-colors">Copper</Link>
-          <Link to="/shop/fire" className="text-sm uppercase tracking-widest text-stone-300 hover:text-white transition-colors">Fire</Link>
-          <Link to="/journal" className="text-sm uppercase tracking-widest text-stone-300 hover:text-white transition-colors">Journal</Link>
-          <Link to="/about" className="text-sm uppercase tracking-widest text-stone-300 hover:text-white transition-colors">Our Story</Link>
+          <Link href="/shop/copper" className="text-sm uppercase tracking-widest text-stone-300 hover:text-white transition-colors">Copper</Link>
+          <Link href="/shop/fire" className="text-sm uppercase tracking-widest text-stone-300 hover:text-white transition-colors">Fire</Link>
+          <Link href="/journal" className="text-sm uppercase tracking-widest text-stone-300 hover:text-white transition-colors">Journal</Link>
+          <Link href="/about" className="text-sm uppercase tracking-widest text-stone-300 hover:text-white transition-colors">Our Story</Link>
         </div>
 
         {/* Logo */}
-        <Link to="/" className="absolute left-1/2 transform -translate-x-1/2 group">
+        <Link href="/" className="absolute left-1/2 transform -translate-x-1/2 group">
           {config.assets.logo ? (
             <img
               src={config.assets.logo}
@@ -89,11 +91,11 @@ export default function Navbar() {
           </div>
 
           <div className="flex flex-col gap-8">
-            <Link to="/" onClick={() => setIsMobileOpen(false)} className="text-3xl font-serif text-white hover:text-copper-400">Home</Link>
-            <Link to="/shop/copper" onClick={() => setIsMobileOpen(false)} className="text-3xl font-serif text-white hover:text-copper-400">Copper Collection</Link>
-            <Link to="/shop/fire" onClick={() => setIsMobileOpen(false)} className="text-3xl font-serif text-white hover:text-copper-400">Fire Starters</Link>
-            <Link to="/journal" onClick={() => setIsMobileOpen(false)} className="text-3xl font-serif text-white hover:text-copper-400">Journal</Link>
-            <Link to="/about" onClick={() => setIsMobileOpen(false)} className="text-3xl font-serif text-white hover:text-copper-400">Our Story</Link>
+            <Link href="/" onClick={() => setIsMobileOpen(false)} className="text-3xl font-serif text-white hover:text-copper-400">Home</Link>
+            <Link href="/shop/copper" onClick={() => setIsMobileOpen(false)} className="text-3xl font-serif text-white hover:text-copper-400">Copper Collection</Link>
+            <Link href="/shop/fire" onClick={() => setIsMobileOpen(false)} className="text-3xl font-serif text-white hover:text-copper-400">Fire Starters</Link>
+            <Link href="/journal" onClick={() => setIsMobileOpen(false)} className="text-3xl font-serif text-white hover:text-copper-400">Journal</Link>
+            <Link href="/about" onClick={() => setIsMobileOpen(false)} className="text-3xl font-serif text-white hover:text-copper-400">Our Story</Link>
           </div>
         </div>
       </div>
@@ -122,7 +124,7 @@ export default function Navbar() {
                   {filteredProducts.length > 0 ? (
                     <div className="space-y-6">
                       {filteredProducts.map(p => (
-                        <Link to={`/product/${p.id}`} onClick={() => setIsSearchOpen(false)} key={p.id} className="flex gap-4 group">
+                        <Link href={`/product/${p.id}`} onClick={() => setIsSearchOpen(false)} key={p.id} className="flex gap-4 group">
                           <div className="w-16 h-20 bg-stone-900">
                             {p.images[0] && <img src={p.images[0]} className="w-full h-full object-cover opacity-80 group-hover:opacity-100" />}
                           </div>
@@ -141,7 +143,7 @@ export default function Navbar() {
                   {filteredPosts.length > 0 ? (
                     <div className="space-y-6">
                       {filteredPosts.map(p => (
-                        <Link to={`/journal/${getPostSlug(p)}`} onClick={() => setIsSearchOpen(false)} key={p.id} className="block group">
+                        <Link href={`/journal/${getPostSlug(p)}`} onClick={() => setIsSearchOpen(false)} key={p.id} className="block group">
                           <h4 className="text-white font-serif text-xl mb-1 group-hover:text-copper-400">{p.title}</h4>
                           <p className="text-stone-500 text-sm line-clamp-1">{p.excerpt}</p>
                         </Link>

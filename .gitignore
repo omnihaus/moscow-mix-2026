@@ -8,9 +8,14 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+.next
 dist
 dist-ssr
 *.local
+
+# Local snapshots of live Firebase content. These may be large and should not
+# be committed; create them with `npm run backup:content`.
+backups/
 
 # Editor directories and files
 .vscode/*

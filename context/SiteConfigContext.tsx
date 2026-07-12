@@ -1,4 +1,6 @@
 
+'use client';
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { SiteConfig, Product, BlogPost, SiteAssets, BrandStory, AdminUser } from '../types';
 import { PRODUCTS, ASSETS, BLOG_POSTS, DEFAULT_STORY } from '../constants';
@@ -73,16 +75,18 @@ const removeUndefined = (obj: any): any => {
 
 const SiteConfigContext = createContext<SiteConfigContextType | undefined>(undefined);
 
-export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
-  // 1. Initialize from Local Storage (Fast Load)
-  const [config, setConfig] = useState<SiteConfig>(() => {
-    try {
-      const saved = localStorage.getItem('moscow_mix_data_v1');
-      return saved ? JSON.parse(saved) : DEFAULT_CONFIG;
-    } catch (e) {
-      return DEFAULT_CONFIG;
-    }
-  });
+export const SiteConfigProvider = ({
+  children,
+  initialConfig = DEFAULT_CONFIG,
+  syncFromFirebase = false,
+}: {
+  children?: ReactNode;
+  initialConfig?: SiteConfig;
+  syncFromFirebase?: boolean;
+}) => {
+  // Public pages receive server-rendered content. Only the admin area enables
+  // browser-side Firebase synchronization and editing.
+  const [config, setConfig] = useState<SiteConfig>(initialConfig);
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -112,6 +116,7 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
 
   // 2. Smart Auto-Save to Local Storage
   useEffect(() => {
+    if (!syncFromFirebase) return;
     try {
       localStorage.setItem('moscow_mix_data_v1', JSON.stringify(config));
     } catch (e) {
@@ -127,7 +132,7 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
         console.error("Critical storage error", err);
       }
     }
-  }, [config]);
+  }, [config, syncFromFirebase]);
 
   // 3. Fetch from Firebase (Sync with Cloud) - Firebase is ALWAYS the source of truth
   const fetchData = async () => {
@@ -213,8 +218,8 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (syncFromFirebase) fetchData();
+  }, [syncFromFirebase]);
 
   // Auto-publish scheduled posts when their scheduled time has passed
   const checkAndPublishScheduledPosts = async () => {
@@ -249,6 +254,7 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
 
   // Check for scheduled posts to publish on load and periodically
   useEffect(() => {
+    if (!syncFromFirebase) return;
     // Initial check after a short delay to ensure data is loaded
     const initialCheck = setTimeout(() => {
       checkAndPublishScheduledPosts();
@@ -263,7 +269,7 @@ export const SiteConfigProvider = ({ children }: { children?: ReactNode }) => {
       clearTimeout(initialCheck);
       clearInterval(interval);
     };
-  }, [config.blogPosts]);
+  }, [config.blogPosts, syncFromFirebase]);
 
   // --- HELPER: Save Full Config to Firebase ---
   const saveToFirebase = async (newConfig: SiteConfig): Promise<void> => {

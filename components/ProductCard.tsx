@@ -1,6 +1,6 @@
 import React from 'react';
 import { Product } from '../types';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 
 interface ProductCardProps {
   product: Product;
@@ -8,7 +8,7 @@ interface ProductCardProps {
 
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   return (
-    <Link to={`/product/${product.id}`} className="group block">
+    <Link href={`/product/${product.id}`} className="group block">
       <div className="relative overflow-hidden bg-stone-900 aspect-[4/5] mb-4">
         {product.isBestSeller && (
           <div className="absolute top-4 left-4 z-10 bg-white text-stone-950 text-[10px] font-bold uppercase px-3 py-1 tracking-widest">

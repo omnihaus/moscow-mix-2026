@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { ChevronRight, Home } from 'lucide-react';
 
 interface BreadcrumbItem {
@@ -79,7 +79,7 @@ export default function Breadcrumbs({ items, className = "" }: BreadcrumbsProps)
                         ) : (
                             // Link to parent page
                             <Link
-                                to={item.url.replace('https://www.moscowmix.com', '')}
+                                href={item.url.replace('https://www.moscowmix.com', '')}
                                 className="text-stone-500 hover:text-copper-400 transition-colors flex items-center"
                             >
                                 {index === 0 && <Home size={14} className="mr-1" />}
