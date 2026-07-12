@@ -50,7 +50,7 @@ const AdminPanel = () => {
     fetch('/api/admin/ai').then(r => r.json()).then(data => setOpenAiConfigured(Boolean(data.configured))).catch(() => setOpenAiConfigured(false));
   }, []);
 
-  const callOpenAI = async (prompt: string, operation: 'text' | 'image' = 'text', images: string[] = []) => {
+  const callOpenAI = async (prompt: string, operation: 'text' | 'image' | 'ideas' = 'text', images: string[] = []) => {
     const accessCode = localStorage.getItem('admin_ai_access_code') || aiAccessCode;
     if (!accessCode) throw new Error('Please save your AI access code in Settings first.');
     const response = await fetch('/api/admin/ai', {
@@ -354,23 +354,36 @@ const AdminPanel = () => {
     inlineImage1Direction: string;
   }
   const [postIdeas, setPostIdeas] = useState<PostIdea[]>([]);
+  const [ideaTitleHistory, setIdeaTitleHistory] = useState<string[]>([]);
   const [isLoadingIdeas, setIsLoadingIdeas] = useState(false);
 
   // Generate 3 AI-powered post ideas using OpenAI
   const generatePostIdeas = async () => {
     setIsLoadingIdeas(true);
     try {
-      const text = await callOpenAI(`You are an expert content strategist for Moscow Mix, a premium brand.
+      const catalogProducts = config.products.map(product => product.name).join('; ');
+      const existingPostTitles = config.blogPosts.map(post => post.title);
+      const excludedTitles = [...existingPostTitles, ...ideaTitleHistory];
+      const normalizeTitle = (title: string) => title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      const excludedNormalized = new Set(excludedTitles.map(normalizeTitle));
 
-PRODUCTS:
-- Pure copper Moscow Mule mugs (hammered, smooth, various sizes)
-- Copper barware sets (pitchers, cups, shot glasses)
-- Natural fire starters (wood wool firelighters, fatwood kindling)
+      const text = await callOpenAI(`You are an expert SEO content strategist for Moscow Mix, a premium brand.
+
+Use current web search signals to identify popular, relevant search queries and content gaps in the pure copper drinkware, Moscow Mule, copper care, premium barware, natural fire starter, campfire, fireplace, and outdoor-living niches. Favor evergreen queries with clear informational or commercial intent. Do not chase unrelated trends.
+
+ACTUAL MOSCOW MIX PRODUCT CATALOG:
+${catalogProducts}
+
+NEVER repeat, lightly rewrite, reverse, pluralize, or create a near-duplicate of any of these existing or previously shown titles:
+${excludedTitles.length ? excludedTitles.map(title => `- ${title}`).join('\n') : '- None yet'}
 
 GENERATE 3 COMPLETELY DIFFERENT blog post ideas. CRITICAL: Each idea MUST:
 1. Target a DIFFERENT search intent (informational, commercial, lifestyle)
 2. Use a DIFFERENT title format (how-to, listicle, story, guide, vs comparison)
 3. Appeal to a DIFFERENT audience segment
+4. Center on a real product from the catalog above—never invent a product
+5. Use a naturally phrased primary search term that real customers use
+6. Be genuinely new in subject, angle, and keyword—not merely a new wording
 
 KEYWORD THEMES TO ROTATE BETWEEN (use different ones for each post):
 - Cocktail recipes, mixology, bartending, happy hour
@@ -383,11 +396,11 @@ KEYWORD THEMES TO ROTATE BETWEEN (use different ones for each post):
 For EACH idea provide exactly these 5 fields:
 - title: Unique SEO title 50-70 chars (vary formats: "How to...", "X Best...", "Why...", "The Ultimate...", "X vs Y")
 - contentDirection: 2-3 sentences describing unique angle and value
-- targetProduct: Specific product (alternate between copper barware and fire starters)
+- targetProduct: Exact product name from the Moscow Mix catalog
 - coverImageDirection: Vivid scene with a person embodying the content
 - inlineImage1Direction: Action shot of happy person using the product
 
-Return ONLY a JSON array with 3 objects. No markdown, no explanation.`);
+Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.`, 'ideas');
       console.log('Raw API response:', text);
 
       // Robust JSON parsing with multiple fallback methods
@@ -413,7 +426,14 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`);
       }
 
       if (Array.isArray(ideas) && ideas.length > 0) {
-        setPostIdeas(ideas.slice(0, 3)); // Take max 3 ideas
+        const freshIdeas = ideas.filter((idea: PostIdea) => {
+          if (!idea?.title || excludedNormalized.has(normalizeTitle(idea.title))) return false;
+          excludedNormalized.add(normalizeTitle(idea.title));
+          return true;
+        }).slice(0, 3);
+        if (freshIdeas.length === 0) throw new Error('OpenAI repeated previously used ideas. Please request another set.');
+        setPostIdeas(freshIdeas);
+        setIdeaTitleHistory(previous => [...previous, ...freshIdeas.map((idea: PostIdea) => idea.title)]);
       } else {
         throw new Error('Invalid response format');
       }
@@ -665,7 +685,7 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`);
             const context = canvas.getContext('2d');
             if (!context) return reject(new Error('Unable to prepare the reference image.'));
             context.drawImage(image, 0, 0, canvas.width, canvas.height);
-            const optimized = canvas.toDataURL('image/jpeg', 0.76);
+            const optimized = canvas.toDataURL('image/jpeg', 0.84);
             resolve({ preview: optimized, base64: optimized });
           };
           image.onerror = () => reject(new Error(`Unable to read ${file.name}.`));
@@ -1378,7 +1398,7 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`);
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Moscow Mix Product Reference Images (Required)</label>
-                    <p className="text-xs text-stone-600">Upload clear front and side views of the exact product. AI generation is blocked without a genuine product reference.</p>
+                    <p className="text-xs text-stone-600">Upload the clearest front or three-quarter product photo first—it becomes the authoritative identity reference. Add side and detail views next. AI generation is blocked without a genuine Moscow Mix product reference.</p>
                     <div className="flex flex-col gap-2">
                       <label className="cursor-pointer bg-stone-800 hover:bg-stone-700 text-white px-4 py-3 w-full text-center text-xs uppercase tracking-widest font-bold flex items-center justify-center gap-2">
                         <Upload size={14} /> Upload Images

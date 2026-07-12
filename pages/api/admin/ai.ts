@@ -41,14 +41,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const commonOptions = {
         model: imageModel,
-        prompt: `${String(prompt)} Use only the supplied Moscow Mix product references. Preserve the exact product silhouette, proportions, material, finish, hammer pattern, rim, handle geometry, attachment points, and color. Do not invent or substitute another copper product.`,
+        prompt: `${String(prompt)} STRICT PRODUCT IDENTITY LOCK: Reference image 1 is the authoritative Moscow Mix product and must be reproduced without redesign. Keep its exact silhouette, dimensions, proportions, count of pieces, material, surface finish, hammer pattern, rim profile, handle geometry, handle thickness, handle attachment points, base, openings, color, reflections, branding, and every visible construction detail. The remaining references show the same product from supporting angles. Change only the surrounding lifestyle scene, people, lighting, camera angle, and background. Do not create, substitute, merge, embellish, simplify, or hallucinate any copper product. If the exact Moscow Mix product cannot be retained, omit the product rather than showing an inaccurate one.`,
         size: '1536x1024' as const,
-        quality: 'medium' as const,
+        quality: 'high' as const,
         output_format: 'jpeg' as const,
       };
 
       const result = referenceFiles.length > 0
-        ? await openai.images.edit({ ...commonOptions, image: referenceFiles })
+        ? await openai.images.edit({ ...commonOptions, image: referenceFiles, input_fidelity: 'high' })
         : await openai.images.generate(commonOptions);
       const base64 = result.data?.[0]?.b64_json;
       if (!base64) throw new Error('OpenAI returned no image.');
@@ -65,6 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       model: textModel,
       input: [{ role: 'user', content }],
       reasoning: { effort: 'low' },
+      ...(operation === 'ideas' ? { tools: [{ type: 'web_search' as const }] } : {}),
     });
     return res.status(200).json({ text: response.output_text });
   } catch (error: any) {
