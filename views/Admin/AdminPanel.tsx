@@ -58,7 +58,16 @@ const AdminPanel = () => {
       headers: { 'Content-Type': 'application/json', 'x-admin-ai-secret': accessCode },
       body: JSON.stringify({ operation, prompt, images }),
     });
-    const data = await response.json();
+    const responseText = await response.text();
+    let data: any;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      if (response.status === 413 || responseText.toLowerCase().includes('entity too large')) {
+        throw new Error('The product reference images were too large. Please upload them again; the updated uploader will resize them automatically.');
+      }
+      throw new Error(responseText || `The AI service returned an unexpected response (${response.status}).`);
+    }
     if (!response.ok) throw new Error(data.error || 'OpenAI generation failed.');
     return operation === 'image' ? data.image : data.text;
   };
@@ -640,17 +649,29 @@ Return ONLY a JSON array with 3 objects. No markdown, no explanation.`);
   const handleTargetImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
 
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files).slice(0, 3);
     const readPromises = files.map(file => {
-      return new Promise<{ preview: string, base64: string }>((resolve) => {
+      return new Promise<{ preview: string, base64: string }>((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => {
           const result = reader.result as string;
-          resolve({
-            preview: result,
-            base64: result
-          });
+          const image = new Image();
+          image.onload = () => {
+            const maxEdge = 1024;
+            const scale = Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+            canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+            const context = canvas.getContext('2d');
+            if (!context) return reject(new Error('Unable to prepare the reference image.'));
+            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+            const optimized = canvas.toDataURL('image/jpeg', 0.76);
+            resolve({ preview: optimized, base64: optimized });
+          };
+          image.onerror = () => reject(new Error(`Unable to read ${file.name}.`));
+          image.src = result;
         };
+        reader.onerror = () => reject(new Error(`Unable to read ${file.name}.`));
         reader.readAsDataURL(file);
       });
     });
