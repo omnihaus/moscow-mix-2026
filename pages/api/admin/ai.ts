@@ -52,7 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
 
       const result = referenceFiles.length > 0
-        ? await openai.images.edit({ ...commonOptions, image: referenceFiles, input_fidelity: 'high' })
+        ? await openai.images.edit({ ...commonOptions, image: referenceFiles })
         : await openai.images.generate(commonOptions);
       const base64 = result.data?.[0]?.b64_json;
       if (!base64) throw new Error('OpenAI returned no image.');
