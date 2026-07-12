@@ -6,6 +6,8 @@ import { ASSETS, BLOG_POSTS, DEFAULT_STORY, PRODUCTS } from '../constants';
 
 const FIREBASE_DOCUMENT =
   'https://firestore.googleapis.com/v1/projects/moscowmix-web/databases/(default)/documents/moscow_mix/live_site';
+const FIREBASE_POSTS_COLLECTION =
+  'https://firestore.googleapis.com/v1/projects/moscowmix-web/databases/(default)/documents/moscow_mix/live_site/posts?pageSize=500';
 
 type FirestoreValue = {
   nullValue?: null;
@@ -65,22 +67,44 @@ function decodeFields(fields: Record<string, FirestoreValue>): Record<string, un
 
 export const getSiteConfig = cache(async (): Promise<SiteConfig> => {
   try {
-    const response = await fetch(FIREBASE_DOCUMENT, {
-      next: { revalidate: 300 },
-      headers: { Accept: 'application/json' },
-    });
+    const [response, postsResponse] = await Promise.all([
+      fetch(FIREBASE_DOCUMENT, {
+        next: { revalidate: 300 },
+        headers: { Accept: 'application/json' },
+      }),
+      fetch(FIREBASE_POSTS_COLLECTION, {
+        next: { revalidate: 300 },
+        headers: { Accept: 'application/json' },
+      }),
+    ]);
 
     if (!response.ok) throw new Error(`Firebase returned ${response.status}`);
 
     const document = (await response.json()) as { fields?: Record<string, FirestoreValue> };
     const live = decodeFields(document.fields ?? {}) as unknown as Partial<SiteConfig>;
+    const postsPayload = postsResponse.ok
+      ? await postsResponse.json() as { documents?: Array<{ fields?: Record<string, FirestoreValue> }> }
+      : { documents: [] };
+    const separatePostRecords = (postsPayload.documents || []).map(postDocument =>
+      decodeFields(postDocument.fields ?? {}) as unknown as BlogPost & { deleted?: boolean }
+    );
+    const deletedPostIds = new Set(separatePostRecords.filter(post => post.deleted).map(post => post.id));
+    const separatePosts = separatePostRecords.filter(post => !post.deleted).map(normalizePost);
+    const separateIds = new Set(separatePosts.map(post => post.id));
+    const legacyPosts = (live.blogPosts?.length ? live.blogPosts : FALLBACK_CONFIG.blogPosts)
+      .filter(post => !deletedPostIds.has(post.id))
+      .map(normalizePost);
+    const mergedPosts = [
+      ...separatePosts,
+      ...legacyPosts.filter(post => !separateIds.has(post.id)),
+    ].sort((a, b) => new Date(getPublishedAt(b)).getTime() - new Date(getPublishedAt(a)).getTime());
 
     return {
       heroHeadline: live.heroHeadline || FALLBACK_CONFIG.heroHeadline,
       heroSubheadline: live.heroSubheadline || FALLBACK_CONFIG.heroSubheadline,
       assets: { ...FALLBACK_CONFIG.assets, ...(live.assets || {}) },
       products: live.products?.length ? live.products : FALLBACK_CONFIG.products,
-      blogPosts: (live.blogPosts?.length ? live.blogPosts : FALLBACK_CONFIG.blogPosts).map(normalizePost),
+      blogPosts: mergedPosts,
       story: { ...FALLBACK_CONFIG.story, ...(live.story || {}) },
     };
   } catch (error) {

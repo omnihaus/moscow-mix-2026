@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { SiteConfig, Product, BlogPost, SiteAssets, BrandStory, AdminUser } from '../types';
 import { PRODUCTS, ASSETS, BLOG_POSTS, DEFAULT_STORY } from '../constants';
 import { db } from '../firebase.ts';
-import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc, writeBatch } from "firebase/firestore";
 
 const DEFAULT_CONFIG: SiteConfig = {
   heroHeadline: "Where Craft Meets <br/> Elemental Power",
@@ -39,7 +39,7 @@ interface SiteConfigContextType {
   reorderProduct: (id: string, direction: 'up' | 'down') => void;
   addBlogPost: (post: BlogPost) => Promise<void>;
   updateBlogPost: (post: BlogPost) => Promise<void>;
-  deleteBlogPost: (id: string) => void;
+  deleteBlogPost: (id: string) => Promise<void>;
   updateStory: (story: BrandStory) => void;
   refreshData: () => Promise<void>;
   forceSyncToCloud: () => Promise<{ success: boolean; message: string }>;
@@ -153,14 +153,26 @@ export const SiteConfigProvider = ({
     setIsLoading(true);
     try {
       const docRef = doc(db, "moscow_mix", "live_site");
-      const docSnap = await getDoc(docRef);
+      const [docSnap, postsSnap] = await Promise.all([
+        getDoc(docRef),
+        getDocs(collection(db, "moscow_mix", "live_site", "posts"))
+      ]);
 
       if (docSnap.exists()) {
         const firebaseData = docSnap.data() as SiteConfig;
+        const separatePostRecords = postsSnap.docs.map(postDoc => postDoc.data() as BlogPost & { deleted?: boolean });
+        const deletedPostIds = new Set(separatePostRecords.filter(post => post.deleted).map(post => post.id));
+        const separatePosts = separatePostRecords.filter(post => !post.deleted);
+        const legacyPosts = (firebaseData.blogPosts || []).filter(post => !deletedPostIds.has(post.id));
+        const separateIds = new Set(separatePosts.map(post => post.id));
+        const mergedFirebasePosts = [
+          ...separatePosts,
+          ...legacyPosts.filter(post => !separateIds.has(post.id))
+        ];
 
         // Get current local state for comparison
         const localPosts = config.blogPosts || [];
-        const firebasePosts = firebaseData.blogPosts || [];
+        const firebasePosts = mergedFirebasePosts;
         const timeSinceLastSave = Date.now() - getLastSaveTime();
 
         console.log('Firebase sync: Comparing data', {
@@ -200,7 +212,7 @@ export const SiteConfigProvider = ({
           assets: { ...DEFAULT_CONFIG.assets, ...(firebaseData.assets || {}) },
           story: { ...DEFAULT_CONFIG.story, ...(firebaseData.story || {}) },
           products: firebaseData.products && firebaseData.products.length > 0 ? firebaseData.products : DEFAULT_CONFIG.products,
-          blogPosts: firebaseData.blogPosts && firebaseData.blogPosts.length > 0 ? firebaseData.blogPosts : DEFAULT_CONFIG.blogPosts,
+          blogPosts: firebasePosts.length > 0 ? firebasePosts : DEFAULT_CONFIG.blogPosts,
           adminPassword: firebaseData.adminPassword || 'admin',
           passwordHint: firebaseData.passwordHint || 'Default is admin',
           adminUsers: firebaseData.adminUsers && firebaseData.adminUsers.length > 0 ? firebaseData.adminUsers : DEFAULT_CONFIG.adminUsers
@@ -282,26 +294,16 @@ export const SiteConfigProvider = ({
     try {
       const docRef = doc(db, "moscow_mix", "live_site");
       // Remove undefined values - Firestore doesn't accept them
-      const sanitizedConfig = removeUndefined(newConfig);
-      await setDoc(docRef, sanitizedConfig);
+      const { blogPosts: _blogPosts, ...siteSettings } = newConfig;
+      const sanitizedConfig = removeUndefined(siteSettings);
+      await setDoc(docRef, sanitizedConfig, { merge: true });
 
       const saveTime = Date.now() - startTime;
       console.log('Firebase save: setDoc completed in', saveTime, 'ms');
 
-      // VERIFICATION: Re-read to confirm data persisted
+      // VERIFICATION: Re-read to confirm the settings document still exists.
       const verifySnap = await getDoc(docRef);
-      if (verifySnap.exists()) {
-        const verifyData = verifySnap.data() as SiteConfig;
-        const savedPostCount = verifyData.blogPosts?.length || 0;
-        const expectedPostCount = newConfig.blogPosts?.length || 0;
-
-        if (savedPostCount === expectedPostCount) {
-          console.log('Firebase save: VERIFIED - Post count matches:', savedPostCount);
-        } else {
-          console.error('Firebase save: MISMATCH! Expected', expectedPostCount, 'posts but Firebase has', savedPostCount);
-          throw new Error(`Save verification failed: expected ${expectedPostCount} posts, got ${savedPostCount}`);
-        }
-      } else {
+      if (!verifySnap.exists()) {
         console.error('Firebase save: Document does not exist after save!');
         throw new Error('Save verification failed: document not found');
       }
@@ -385,10 +387,8 @@ export const SiteConfigProvider = ({
     setLastSaveTime(Date.now());
 
     try {
-      const docRef = doc(db, "moscow_mix", "live_site");
-      // Remove undefined values - Firestore doesn't accept them
-      const sanitizedConfig = removeUndefined(newConfig);
-      await setDoc(docRef, sanitizedConfig);
+      const postRef = doc(db, "moscow_mix", "live_site", "posts", newPost.id);
+      await setDoc(postRef, removeUndefined({ ...newPost, storageUpdatedAt: new Date().toISOString() }));
 
       console.log('addBlogPost: Firebase save completed successfully');
 
@@ -421,10 +421,8 @@ export const SiteConfigProvider = ({
     setLastSaveTime(Date.now());
 
     try {
-      const docRef = doc(db, "moscow_mix", "live_site");
-      // Remove undefined values - Firestore doesn't accept them
-      const sanitizedConfig = removeUndefined(newConfig);
-      await setDoc(docRef, sanitizedConfig);
+      const postRef = doc(db, "moscow_mix", "live_site", "posts", post.id);
+      await setDoc(postRef, removeUndefined({ ...post, storageUpdatedAt: new Date().toISOString() }));
 
       console.log('updateBlogPost: Firebase save completed successfully');
 
@@ -444,13 +442,17 @@ export const SiteConfigProvider = ({
     }
   };
 
-  const deleteBlogPost = (id: string) => {
+  const deleteBlogPost = async (id: string): Promise<void> => {
     const newConfig = {
       ...config,
       blogPosts: config.blogPosts.filter(p => p.id !== id)
     };
+    await setDoc(doc(db, "moscow_mix", "live_site", "posts", id), {
+      id,
+      deleted: true,
+      storageUpdatedAt: new Date().toISOString()
+    });
     setConfig(newConfig);
-    saveToFirebase(newConfig);
   };
 
   const updateStory = (story: BrandStory) => {
@@ -504,28 +506,16 @@ export const SiteConfigProvider = ({
     });
 
     try {
-      const docRef = doc(db, "moscow_mix", "live_site");
-      await setDoc(docRef, config);
-
-      // Verify the save
-      const verifySnap = await getDoc(docRef);
-      if (verifySnap.exists()) {
-        const verifyData = verifySnap.data() as SiteConfig;
-        const savedPostCount = verifyData.blogPosts?.length || 0;
-        const expectedPostCount = config.blogPosts?.length || 0;
-
-        if (savedPostCount === expectedPostCount) {
-          const message = `SUCCESS! Synced ${expectedPostCount} posts, ${config.products?.length || 0} products to Firebase.`;
-          console.log('FORCE SYNC:', message);
-          return { success: true, message };
-        } else {
-          const message = `PARTIAL: Expected ${expectedPostCount} posts but Firebase shows ${savedPostCount}`;
-          console.error('FORCE SYNC:', message);
-          return { success: false, message };
-        }
-      } else {
-        return { success: false, message: 'Document not found after save!' };
-      }
+      const batch = writeBatch(db);
+      const { blogPosts: _blogPosts, ...siteSettings } = config;
+      batch.set(doc(db, "moscow_mix", "live_site"), removeUndefined(siteSettings), { merge: true });
+      config.blogPosts.forEach(post => {
+        batch.set(doc(db, "moscow_mix", "live_site", "posts", post.id), removeUndefined({ ...post, storageUpdatedAt: new Date().toISOString() }));
+      });
+      await batch.commit();
+      const message = `SUCCESS! Synced ${config.blogPosts.length} posts and ${config.products?.length || 0} products to Firebase.`;
+      console.log('FORCE SYNC:', message);
+      return { success: true, message };
     } catch (error) {
       const message = `ERROR: ${error instanceof Error ? error.message : 'Unknown error'}`;
       console.error('FORCE SYNC:', message);
