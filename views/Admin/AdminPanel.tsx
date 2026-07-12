@@ -110,15 +110,30 @@ const AdminPanel = () => {
     alert('Invalid email or password');
   };
 
-  const handleSaveApiKey = () => {
+  const handleSaveApiKey = async () => {
     if (!aiAccessCode.trim()) {
       alert("Please enter the AI access code from Vercel.");
       return;
     }
     const code = aiAccessCode.trim();
-    localStorage.setItem('admin_ai_access_code', code);
-    setAiAccessCode(code);
-    alert("AI access code saved. Your OpenAI API key remains private on Vercel.");
+    try {
+      const response = await fetch('/api/admin/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-ai-secret': code },
+        body: JSON.stringify({ operation: 'verify' }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.valid) {
+        localStorage.removeItem('admin_ai_access_code');
+        throw new Error(data.error || 'The access code does not match Vercel.');
+      }
+      localStorage.setItem('admin_ai_access_code', code);
+      setAiAccessCode(code);
+      alert("AI access verified and saved successfully.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to verify the access code.';
+      alert(`AI access was not saved: ${message}`);
+    }
   };
 
   const handleSaveCredentials = () => {
@@ -1723,7 +1738,7 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
                   </div>
                   <p className="text-xs text-stone-500">This is a separate access code—not your OpenAI key. The real API key stays private on Vercel.</p>
                 </div>
-                <button onClick={handleSaveApiKey} className="w-full bg-copper-900/30 text-copper-400 hover:bg-copper-900/50 py-3 px-4 rounded text-sm font-bold border border-copper-900">Save AI Access Code</button>
+                <button onClick={handleSaveApiKey} className="w-full bg-copper-900/30 text-copper-400 hover:bg-copper-900/50 py-3 px-4 rounded text-sm font-bold border border-copper-900">Verify &amp; Save AI Access Code</button>
               </div>
 
               {/* Emergency Cloud Sync Section */}

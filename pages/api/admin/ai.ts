@@ -29,6 +29,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const { operation, prompt, images = [] } = req.body || {};
 
+    if (operation === 'verify') {
+      return res.status(200).json({ valid: true });
+    }
+
     if (operation === 'image') {
       const referenceFiles = await Promise.all(images.slice(0, 4).map(async (image: string, index: number) => {
         const value = String(image);
