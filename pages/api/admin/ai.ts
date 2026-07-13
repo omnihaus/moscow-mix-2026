@@ -47,10 +47,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const commonOptions = {
         model: imageModel,
-        prompt: `${String(prompt)} STRICT PRODUCT IDENTITY LOCK: Reference image 1 is the authoritative Moscow Mix product and must be reproduced without redesign. Keep its exact silhouette, dimensions, proportions, count of pieces, material, surface finish, hammer pattern, rim profile, handle geometry, handle thickness, handle attachment points, base, openings, color, reflections, branding, and every visible construction detail. The remaining references show the same product from supporting angles. Change only the surrounding lifestyle scene, people, lighting, camera angle, and background. Do not create, substitute, merge, embellish, simplify, or hallucinate any copper product. If the exact Moscow Mix product cannot be retained, omit the product rather than showing an inaccurate one.`,
-        size: '1536x1024' as const,
+        prompt: `${String(prompt)} STRICT PRODUCT AND HUMAN QUALITY LOCK: Reference image 1 is the authoritative Moscow Mix product. Preserve its exact product category, silhouette, dimensions, proportions, piece count, material, finish, hammer pattern, rim, handle or cap geometry, attachment points, base, openings, color, branding, and every visible construction detail. Other references are supporting angles of the same product. Never invent, merge, substitute, enlarge, or redesign a copper object. Show only the referenced Moscow Mix product. Place it securely on a table, counter, tray, or shelf; no person may hold it, wear it, place a hand through it, or overlap it. If people appear, keep them in the middle/background with fully natural faces, eyes, mouths, hands, fingers, and limbs; hands must be visible and separate from all products. No surreal anatomy, duplicate body parts, fused objects, distorted faces, or novelty shapes. Change only the lifestyle setting, lighting, and camera composition. If the exact product cannot be preserved, omit the product rather than showing an inaccurate one.`,
+        // High-quality web resolution keeps the response safely below Vercel's
+        // transport limit while retaining enough detail for journal layouts.
+        size: '1280x832' as const,
         quality: 'high' as const,
         output_format: 'jpeg' as const,
+        output_compression: 86,
       };
 
       const result = referenceFiles.length > 0
@@ -58,7 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         : await openai.images.generate(commonOptions);
       const base64 = result.data?.[0]?.b64_json;
       if (!base64) throw new Error('OpenAI returned no image.');
-      return res.status(200).json({ image: `data:image/jpeg;base64,${base64}` });
+      return res.status(200).json({ image: `data:image/jpeg;base64,${base64}`, requestId: (result as any)._request_id || null });
     }
 
     const content: any[] = [{ type: 'input_text', text: String(prompt) }];
@@ -74,7 +77,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
     return res.status(200).json({ text: response.output_text });
   } catch (error: any) {
-    console.error('OpenAI admin generation failed', error);
+    console.error('OpenAI admin generation failed', {
+      message: error?.message,
+      status: error?.status,
+      code: error?.code,
+      requestId: error?.request_id,
+    });
     const message = error?.message || 'OpenAI generation failed.';
     return res.status(error?.status || 500).json({ error: message });
   }
