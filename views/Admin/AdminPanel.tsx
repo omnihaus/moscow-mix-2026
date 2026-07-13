@@ -859,18 +859,24 @@ Return ONLY a JSON array with ${needed} objects, each containing exactly:
     return JSON.parse(objectMatch?.[0] || cleaned);
   };
 
-  const generateValidatedImage = async (prompt: string, label: string): Promise<string> => {
+  const generateValidatedImage = async (prompt: string, label: string, priorImages: string[] = []): Promise<string> => {
     let qualityFeedback = '';
     for (let generationAttempt = 1; generationAttempt <= 2; generationAttempt += 1) {
       setGenerationStatus(`${label}: creating high-quality image${generationAttempt > 1 ? ' (quality retry)' : ''}...`);
       const image = await generateImageFromPrompt(
-        `${prompt}${qualityFeedback ? ` CORRECT THESE PRIOR QUALITY FAILURES: ${qualityFeedback}` : ''}`,
+        `${prompt} UNIQUE COMPOSITION LOCK: This is the ${label.toLowerCase()} in a three-image journal story. It must be visually distinct from the other images: use a different camera angle, framing, action, setting detail, body pose, and product placement. Never recreate or reuse another image from this post.${qualityFeedback ? ` CORRECT THESE PRIOR QUALITY FAILURES: ${qualityFeedback}` : ''}`,
         imageGenModel,
         targetProductBase64s
       );
 
-      setGenerationStatus(`${label}: checking the exact product, face, hands and image quality...`);
-      const qaText = await callOpenAI(`You are a strict ecommerce image quality inspector. The first ${Math.min(targetProductBase64s.length, 3)} image(s) are authoritative photographs of the genuine Moscow Mix target product. The final image is a proposed journal image.
+      if (priorImages.includes(image)) {
+        qualityFeedback = 'This is an exact duplicate of an earlier journal image. Create a completely different composition, camera angle, action, and setting.';
+        continue;
+      }
+
+      setGenerationStatus(`${label}: checking product accuracy, quality and uniqueness...`);
+      const referenceCount = Math.min(targetProductBase64s.length, 3);
+      const qaText = await callOpenAI(`You are a strict ecommerce image quality inspector. The first ${referenceCount} image(s) are authoritative photographs of the genuine Moscow Mix target product. The next ${priorImages.length} image(s), if present, are already approved images from the same journal post. The final image is a proposed ${label.toLowerCase()}.
 
 Reject the proposed image unless ALL are true:
 1. The exact same product category, silhouette, proportions, cap/handle/rim/base, texture, finish, count and construction details are clearly preserved. A generic or merely similar copper product fails.
@@ -878,19 +884,21 @@ Reject the proposed image unless ALL are true:
 3. Every visible person has realistic facial anatomy, eyes, mouth, hands, fingers, limbs and body proportions. No fused, missing, duplicate or object-like anatomy.
 4. The product is naturally integrated and used for its actual purpose in the scene. It is not a pasted cut-out, isolated display, pedestal object, oversized foreground prop, or a reference-photo overlay. If a person interacts with it, their hand uses the true handle, cap, or body naturally and has correct anatomy. A generic glass or substitute product may not be used in place of the referenced Moscow Mix product.
 5. The result looks like polished premium editorial photography, is sharp, coherent and commercially usable.
+6. The proposed image is clearly different from every already approved journal image: it must not reuse the same scene, pose, crop, camera angle, product placement, action, or near-identical composition. A changed color grade or tiny crop does not make it unique.
 
 Return only JSON:
-{"pass":true,"productIdentityScore":0,"humanAnatomyScore":0,"editorialQualityScore":0,"reasons":["specific issue"]}
-Use scores from 0-100. pass may be true only when productIdentityScore >= 94, humanAnatomyScore >= 96, editorialQualityScore >= 88, and there are no material defects.`, 'text', [...targetProductBase64s.slice(0, 3), image]);
+{"pass":true,"productIdentityScore":0,"humanAnatomyScore":0,"editorialQualityScore":0,"uniqueComposition":true,"reasons":["specific issue"]}
+Use scores from 0-100. pass may be true only when productIdentityScore >= 94, humanAnatomyScore >= 96, editorialQualityScore >= 88, uniqueComposition is true, and there are no material defects.`, 'text', [...targetProductBase64s.slice(0, 3), ...priorImages, image]);
       const qa = parseJsonObject(qaText);
       const passed = qa?.pass === true
         && Number(qa.productIdentityScore) >= 94
         && Number(qa.humanAnatomyScore) >= 96
-        && Number(qa.editorialQualityScore) >= 88;
+        && Number(qa.editorialQualityScore) >= 88
+        && qa?.uniqueComposition === true;
       if (passed) return image;
       qualityFeedback = Array.isArray(qa?.reasons) && qa.reasons.length
         ? qa.reasons.join('; ')
-        : 'The image did not preserve the exact product or professional human anatomy.';
+        : 'The image did not preserve the exact product, professional human anatomy, or a distinct composition from the other images.';
     }
     throw new Error(`${label} failed the product-and-human quality check twice. No partial image set was applied.`);
   };
@@ -901,7 +909,13 @@ Use scores from 0-100. pass may be true only when productIdentityScore >= 94, hu
 
     const prompts = [plan.coverPrompt, ...plan.inlineJobs.map(job => job.prompt)];
     const labels = ['Cover image', 'Inline image 1', 'Inline image 2'];
-    const generated = await Promise.all(prompts.map((prompt, index) => generateValidatedImage(prompt, labels[index])));
+    // Generate sequentially so every later image can be compared against the
+    // earlier approved images. Parallel generation allowed identical outputs
+    // to slip through even when the textual prompts were different.
+    const generated: string[] = [];
+    for (const [index, prompt] of prompts.entries()) {
+      generated.push(await generateValidatedImage(prompt, labels[index], generated));
+    }
 
     setGenerationStatus('All three passed. Saving the complete image set...');
     const uploaded = await Promise.all([
