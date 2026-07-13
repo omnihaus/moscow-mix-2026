@@ -3,6 +3,11 @@ import { getModifiedAt, getPostSlug, getSiteConfig, isPublished } from '@/lib/si
 
 const SITE_URL = 'https://www.moscowmix.com';
 
+// Next's sitemap serializer currently writes image URLs verbatim. Firebase
+// download URLs contain query-string ampersands, which must be XML entities or
+// browsers and crawlers reject the entire sitemap as malformed XML.
+const xmlSafeImageUrl = (url: string) => url.replace(/&/g, '&amp;');
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const config = await getSiteConfig();
   const staticPages: MetadataRoute.Sitemap = [
@@ -18,7 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: `${SITE_URL}/product/${encodeURIComponent(product.id)}`,
     changeFrequency: 'weekly',
     priority: 0.8,
-    images: product.images.filter(Boolean),
+    images: product.images.filter(Boolean).map(xmlSafeImageUrl),
   }));
 
   const publishedPosts = config.blogPosts.filter((post) => isPublished(post));
@@ -34,7 +39,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: new Date(getModifiedAt(post)),
     changeFrequency: 'monthly',
     priority: 0.7,
-    images: post.coverImage ? [post.coverImage] : [],
+    images: post.coverImage ? [xmlSafeImageUrl(post.coverImage)] : [],
   }));
 
   return [...staticPages, ...paginationPages, ...productPages, ...articlePages];

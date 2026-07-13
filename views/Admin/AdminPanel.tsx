@@ -526,9 +526,9 @@ Return ONLY a JSON array with ${needed} objects, each containing exactly:
   "contentPillar": "care|cocktails|entertaining|gifting|design|wellness|comparisons",
   "contentDirection": "2-3 specific sentences explaining the audience, question and useful answer",
   "targetProduct": "exact catalog product name",
-  "coverImageDirection": "premium editorial scene; product resting on a stable surface; no one touching it",
-  "inlineImage1Direction": "different premium scene; product resting untouched on a stable surface",
-  "inlineImage2Direction": "third distinct scene; product resting untouched on a stable surface"
+  "coverImageDirection": "premium editorial scene; the exact product is naturally used in the activity, never displayed separately",
+  "inlineImage1Direction": "different premium scene; the exact product is naturally used for its intended purpose",
+  "inlineImage2Direction": "third distinct scene; the exact product is integrated naturally, never displayed as a prop"
 }`, 'ideas');
 
         const candidates = parseIdeaResponse(text);
@@ -845,7 +845,7 @@ Return ONLY a JSON array with ${needed} objects, each containing exactly:
     referenceImages?: string[]
   ): Promise<string> => {
     const image = await callOpenAI(
-      `${prompt}. Photorealistic premium editorial photography for Moscow Mix. Natural human anatomy and facial proportions. The genuine reference product rests untouched on a stable surface. No person holds, wears, overlaps, or touches the product. No text, packaging copy, invented logos, surreal objects, duplicate limbs, fused fingers, or distorted faces.`,
+      `${prompt}. Photorealistic premium editorial photography for Moscow Mix. The uploaded image is an exact product identity reference only: integrate a faithful recreation of that product naturally into the lifestyle moment, never paste, overlay, frame, enlarge, isolate, or display the reference photo itself. The product must be used for its actual purpose in the scene and be at believable scale with matching perspective, lighting and contact shadows. If a person is present, they may naturally use the real handle, cap, or body with one anatomically correct hand. Natural human anatomy and facial proportions. No generic substitute vessel, text, packaging copy, invented logos, surreal objects, duplicate limbs, fused fingers, or distorted faces.`,
       'image',
       referenceImages || []
     );
@@ -876,7 +876,7 @@ Reject the proposed image unless ALL are true:
 1. The exact same product category, silhouette, proportions, cap/handle/rim/base, texture, finish, count and construction details are clearly preserved. A generic or merely similar copper product fails.
 2. No extra, substituted, merged, enlarged, distorted or invented copper item appears.
 3. Every visible person has realistic facial anatomy, eyes, mouth, hands, fingers, limbs and body proportions. No fused, missing, duplicate or object-like anatomy.
-4. The product is resting on a stable surface and no person is touching, holding, wearing or overlapping it.
+4. The product is naturally integrated and used for its actual purpose in the scene. It is not a pasted cut-out, isolated display, pedestal object, oversized foreground prop, or a reference-photo overlay. If a person interacts with it, their hand uses the true handle, cap, or body naturally and has correct anatomy. A generic glass or substitute product may not be used in place of the referenced Moscow Mix product.
 5. The result looks like polished premium editorial photography, is sharp, coherent and commercially usable.
 
 Return only JSON:
@@ -1026,8 +1026,8 @@ Use scores from 0-100. pass may be true only when productIdentityScore >= 94, hu
             - MUST feature a REAL PERSON (man or woman, diverse representation encouraged)
             - Cast a European adult in contemporary, understated lifestyle clothing. Avoid cultural stereotypes.
             - Person should EMBODY the lifestyle/emotion of the article
-            - The exact Moscow Mix product must rest untouched on a stable table, counter, tray, or shelf in the foreground
-            - The person may enjoy the surrounding lifestyle but must not touch, hold, wear, overlap, or obscure the product
+            - The exact Moscow Mix product must be naturally integrated into the main activity at realistic scale, with appropriate physical use and believable lighting, perspective, and contact shadows
+            - The product must be integrated into the actual activity, not placed separately as a display object; a person may naturally use it by its true handle, cap, or body
             - Setting should VISUALLY SUMMARIZE the article's message
             - Think: "What single image makes someone want to read this article?"
             ${coverImgDir ? `- SPECIFIC DIRECTION: "${coverImgDir}"` : ''}
@@ -1035,7 +1035,7 @@ Use scores from 0-100. pass may be true only when productIdentityScore >= 94, hu
             **INLINE IMAGE 1 (MANDATORY - MUST INCLUDE HAPPY PERSON):**
             - MUST feature a HAPPY person (genuine smile, relaxed, enjoying the moment)
             - Cast a European adult in contemporary, understated lifestyle clothing. Avoid cultural stereotypes.
-            - Person should be engaged with the surrounding activity while the exact product rests untouched on a stable surface
+            - Person should be genuinely engaged with the exact product in the activity where appropriate (for example, mixing or serving a drink in the Moscow Mix mug), never using a generic glass while the target product is sidelined
             - Should feel like authentic lifestyle photography, not staged
             ${inlineImg1Dir ? `- SPECIFIC DIRECTION: "${inlineImg1Dir}"` : '- Must be contextually relevant to the surrounding paragraph content.'}
             
@@ -1067,9 +1067,9 @@ Use scores from 0-100. pass may be true only when productIdentityScore >= 94, hu
                 EXAMPLE BAD SLUGS: 'how-to-make-perfect-moscow-mule-at-home', 'the-best-way-to-care-for-copper', '2024-tips'",
              "tags": ["tag1", "tag2"],
              "metaDescription": "SEO meta description",
-             "coverImagePrompt": "The EXACT PRODUCT DESCRIPTION STRING resting untouched on a stable foreground surface, with a [ethnicity] [man/woman] in their [age]s enjoying the surrounding lifestyle in the middle ground, hands fully visible and away from the product, warm natural lighting, photorealistic magazine editorial quality",
+             "coverImagePrompt": "The EXACT PRODUCT DESCRIPTION STRING used naturally in the central activity, with a [ethnicity] [man/woman] in their [age]s using its real handle, cap, or body in a physically believable way; never a pedestal display or pasted product cut-out; warm natural lighting, photorealistic magazine editorial quality",
              "inlineImagePrompts": [
-               "The EXACT PRODUCT DESCRIPTION STRING resting untouched on a stable surface, a happy [man/woman] genuinely smiling in the background with hands fully visible and away from the product, [lifestyle setting], photorealistic candid editorial photography",
+               "The EXACT PRODUCT DESCRIPTION STRING naturally used in the scene by a happy [man/woman] with realistic hands, [lifestyle setting]; the product is the authentic vessel or object used for the activity, never a separate display prop, photorealistic candid editorial photography",
                "Second inline image prompt with product and context"
              ],
              "aeoQuestion": "The primary question this article answers, phrased exactly as users would search. Example: 'What is the best way to clean copper mugs?' Start with What/How/Why.",
@@ -1103,7 +1103,7 @@ Use scores from 0-100. pass may be true only when productIdentityScore >= 94, hu
       if (contentEditableRef.current) contentEditableRef.current.innerHTML = draftContent;
 
       setGenerationStatus('Preparing the cover and two article images...');
-      const coverPrompt = `${data.coverImagePrompt || `A professional magazine-quality photo for a blog post about ${blogTitle}. ${blogContentDirection || ''}.`} CASTING REQUIREMENT: Cast a European adult in contemporary, understated lifestyle clothing. Their hands must remain fully visible and away from the product. The authentic Moscow Mix reference product rests untouched on a stable surface. Avoid cultural stereotypes.`;
+      const coverPrompt = `${data.coverImagePrompt || `A professional magazine-quality photo for a blog post about ${blogTitle}. ${blogContentDirection || ''}.`} CASTING REQUIREMENT: Cast a European adult in contemporary, understated lifestyle clothing. The authentic Moscow Mix reference product must be naturally used in the real activity, at believable scale, with correct lighting and perspective. Do not use a generic glass or separate display pedestal. Avoid cultural stereotypes.`;
 
       // Improved regex to handle various attribute orderings if necessary, but standardizing on the one we generated
       const placeholderRegex = /<div class="image-placeholder" data-prompt="([^"]+)"><\/div>/g;
@@ -1116,7 +1116,7 @@ Use scores from 0-100. pass may be true only when productIdentityScore >= 94, hu
         const casting = index === 0
           ? 'CASTING REQUIREMENT: Cast a European adult in contemporary, understated lifestyle clothing. Avoid cultural stereotypes.'
           : `CASTING REQUIREMENT: ${inlineTwoCasting} Avoid cultural stereotypes.`;
-        return { fullMatch: match[0], originalPrompt, prompt: `${originalPrompt} ${casting} The authentic Moscow Mix reference product must rest untouched on a stable surface; all hands remain visible and away from it.` };
+        return { fullMatch: match[0], originalPrompt, prompt: `${originalPrompt} ${casting} The authentic Moscow Mix reference product must be naturally used in the real activity, at believable scale, with correct lighting and perspective. Do not use a generic substitute vessel or separate display pedestal.` };
       });
 
       const conciseAltText = [targetProduct || 'Moscow Mix product', blogTitle]
