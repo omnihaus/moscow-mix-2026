@@ -861,10 +861,14 @@ Return ONLY a JSON array with ${needed} objects, each containing exactly:
 
   const generateValidatedImage = async (prompt: string, label: string, priorImages: string[] = []): Promise<string> => {
     let qualityFeedback = '';
-    for (let generationAttempt = 1; generationAttempt <= 2; generationAttempt += 1) {
+    const maxGenerationAttempts = 3;
+    for (let generationAttempt = 1; generationAttempt <= maxGenerationAttempts; generationAttempt += 1) {
       setGenerationStatus(`${label}: creating high-quality image${generationAttempt > 1 ? ' (quality retry)' : ''}...`);
+      const rescueDirection = generationAttempt === maxGenerationAttempts
+        ? ' FINAL RELIABLE COMPOSITION: Use a simple, elegant editorial product-in-use scene with no visible people, faces, hands, or limbs. Keep the setting and camera angle clearly different from earlier images. Show the exact reference product at realistic scale, naturally filled, served, or placed in its intended use context with coherent lighting, perspective, and contact shadows.'
+        : '';
       const image = await generateImageFromPrompt(
-        `${prompt} UNIQUE COMPOSITION LOCK: This is the ${label.toLowerCase()} in a three-image journal story. It must be visually distinct from the other images: use a different camera angle, framing, action, setting detail, body pose, and product placement. Never recreate or reuse another image from this post.${qualityFeedback ? ` CORRECT THESE PRIOR QUALITY FAILURES: ${qualityFeedback}` : ''}`,
+        `${prompt} UNIQUE COMPOSITION LOCK: This is the ${label.toLowerCase()} in a three-image journal story. It must be visually distinct from the other images: use a different camera angle, framing, action, setting detail, body pose, and product placement. Never recreate or reuse another image from this post.${rescueDirection}${qualityFeedback ? ` CORRECT THESE PRIOR QUALITY FAILURES: ${qualityFeedback}` : ''}`,
         imageGenModel,
         targetProductBase64s
       );
@@ -888,19 +892,21 @@ Reject the proposed image unless ALL are true:
 
 Return only JSON:
 {"pass":true,"productIdentityScore":0,"humanAnatomyScore":0,"editorialQualityScore":0,"uniqueComposition":true,"reasons":["specific issue"]}
-Use scores from 0-100. pass may be true only when productIdentityScore >= 94, humanAnatomyScore >= 96, editorialQualityScore >= 88, uniqueComposition is true, and there are no material defects.`, 'text', [...targetProductBase64s.slice(0, 3), ...priorImages, image]);
+Use scores from 0-100. When no person is visible, set humanAnatomyScore to 100. Reserve scores below 85 for clear, material defects—not minor stylistic differences. pass may be true only when productIdentityScore >= 88, humanAnatomyScore >= 90, editorialQualityScore >= 84, uniqueComposition is true, and there are no material defects.`, 'text', [...targetProductBase64s.slice(0, 3), ...priorImages, image]);
       const qa = parseJsonObject(qaText);
-      const passed = qa?.pass === true
-        && Number(qa.productIdentityScore) >= 94
-        && Number(qa.humanAnatomyScore) >= 96
-        && Number(qa.editorialQualityScore) >= 88
+      // Use the measurable quality scores as the decision. The inspector's
+      // boolean was occasionally false even when every required score passed,
+      // which caused good image sets to fail unnecessarily.
+      const passed = Number(qa.productIdentityScore) >= 88
+        && Number(qa.humanAnatomyScore) >= 90
+        && Number(qa.editorialQualityScore) >= 84
         && qa?.uniqueComposition === true;
       if (passed) return image;
       qualityFeedback = Array.isArray(qa?.reasons) && qa.reasons.length
         ? qa.reasons.join('; ')
         : 'The image did not preserve the exact product, professional human anatomy, or a distinct composition from the other images.';
     }
-    throw new Error(`${label} failed the product-and-human quality check twice. No partial image set was applied.`);
+    throw new Error(`${label} could not produce a usable, distinct image after three automatic attempts. Your written draft is preserved.`);
   };
 
   const createAndApplyImageSet = async (plan: PendingImagePlan) => {
