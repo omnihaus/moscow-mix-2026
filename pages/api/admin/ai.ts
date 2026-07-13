@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import OpenAI, { toFile } from 'openai';
+import { ADMIN_SESSION_COOKIE, verifyAdminSession } from '../../../lib/admin-session';
 
 export const config = {
   api: { bodyParser: { sizeLimit: '20mb' } },
@@ -13,7 +14,8 @@ const imageModel = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
 function authorized(req: NextApiRequest) {
   const expected = process.env.ADMIN_AI_SECRET;
   const supplied = req.headers['x-admin-ai-secret'];
-  return Boolean(expected && supplied && supplied === expected);
+  const legacyCodeMatches = Boolean(expected && supplied && supplied === expected);
+  return legacyCodeMatches || verifyAdminSession(req.cookies[ADMIN_SESSION_COOKIE], expected);
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

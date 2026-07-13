@@ -113,6 +113,31 @@ export const getSiteConfig = cache(async (): Promise<SiteConfig> => {
   }
 });
 
+export async function verifyAdminCredentials(email: string, password: string): Promise<boolean> {
+  if (!email.trim() || !password) return false;
+
+  try {
+    const response = await fetch(FIREBASE_DOCUMENT, {
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) return false;
+
+    const document = (await response.json()) as { fields?: Record<string, FirestoreValue> };
+    const live = decodeFields(document.fields ?? {}) as unknown as Partial<SiteConfig>;
+    const normalizedEmail = email.trim().toLowerCase();
+    const matchingUser = (live.adminUsers || []).find(
+      (user) => user.email.toLowerCase() === normalizedEmail && user.password === password,
+    );
+    if (matchingUser) return true;
+
+    return normalizedEmail === 'admin' && Boolean(live.adminPassword) && live.adminPassword === password;
+  } catch (error) {
+    console.error('Unable to verify Admin credentials for AI session.', error);
+    return false;
+  }
+}
+
 export function isPublished(post: BlogPost, now = new Date()): boolean {
   return (
     !post.status ||

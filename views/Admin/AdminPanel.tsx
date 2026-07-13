@@ -52,10 +52,11 @@ const AdminPanel = () => {
 
   const callOpenAI = async (prompt: string, operation: 'text' | 'image' | 'ideas' = 'text', images: string[] = []) => {
     const accessCode = localStorage.getItem('admin_ai_access_code') || aiAccessCode;
-    if (!accessCode) throw new Error('Please save your AI access code in Settings first.');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (accessCode) headers['x-admin-ai-secret'] = accessCode;
     const response = await fetch('/api/admin/ai', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-ai-secret': accessCode },
+      headers,
       body: JSON.stringify({ operation, prompt, images }),
     });
     const responseText = await response.text();
@@ -68,11 +69,24 @@ const AdminPanel = () => {
       }
       throw new Error(responseText || `The AI service returned an unexpected response (${response.status}).`);
     }
-    if (!response.ok) throw new Error(data.error || 'OpenAI generation failed.');
+    if (!response.ok) {
+      if (response.status === 401) throw new Error('Your secure Admin session expired. Please log out and sign in again.');
+      throw new Error(data.error || 'OpenAI generation failed.');
+    }
     return operation === 'image' ? data.image : data.text;
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const establishAdminSession = async () => {
+    const response = await fetch('/api/admin/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: loginEmail, password: passwordInput }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.authenticated) throw new Error(data.error || 'Unable to create a secure Admin session.');
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Get admin users (with fallback to empty array)
@@ -84,6 +98,12 @@ const AdminPanel = () => {
     );
 
     if (matchedUser) {
+      try {
+        await establishAdminSession();
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Unable to create a secure Admin session.');
+        return;
+      }
       setIsAuthenticated(true);
       setCurrentUser(matchedUser);
       // Writers go directly to Journal tab
@@ -95,6 +115,12 @@ const AdminPanel = () => {
 
     // Fallback: Check legacy single password (for backward compatibility)
     if (loginEmail.toLowerCase() === 'admin' && verifyAdminPassword(passwordInput)) {
+      try {
+        await establishAdminSession();
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Unable to create a secure Admin session.');
+        return;
+      }
       setIsAuthenticated(true);
       setCurrentUser({
         id: 'legacy-admin',
@@ -108,6 +134,13 @@ const AdminPanel = () => {
     }
 
     alert('Invalid email or password');
+  };
+
+  const handleLogout = async () => {
+    await fetch('/api/admin/session', { method: 'DELETE' }).catch(() => undefined);
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    setPasswordInput('');
   };
 
   const handleSaveApiKey = async () => {
@@ -1122,7 +1155,7 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
           </div>
 
           <div className="p-4 border-t border-stone-800">
-            <button onClick={() => setIsAuthenticated(false)} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-stone-500 hover:text-red-400 transition-colors">
+            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-stone-500 hover:text-red-400 transition-colors">
               <LogOut size={18} /> Logout
             </button>
           </div>
