@@ -54,26 +54,51 @@ const AdminPanel = () => {
     const accessCode = localStorage.getItem('admin_ai_access_code') || aiAccessCode;
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (accessCode) headers['x-admin-ai-secret'] = accessCode;
-    const response = await fetch('/api/admin/ai', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ operation, prompt, images }),
-    });
-    const responseText = await response.text();
-    let data: any;
-    try {
-      data = JSON.parse(responseText);
-    } catch {
-      if (response.status === 413 || responseText.toLowerCase().includes('entity too large')) {
-        throw new Error('The product reference images were too large. Please upload them again; the updated uploader will resize them automatically.');
+    const maxAttempts = 2;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), operation === 'image' ? 270_000 : 120_000);
+      try {
+        const response = await fetch('/api/admin/ai', {
+          method: 'POST',
+          headers,
+          credentials: 'same-origin',
+          signal: controller.signal,
+          body: JSON.stringify({ operation, prompt, images }),
+        });
+        const responseText = await response.text();
+        let data: any;
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          if (response.status === 413 || responseText.toLowerCase().includes('entity too large')) {
+            throw new Error('The product reference images were too large. Please upload them again; the updated uploader will resize them automatically.');
+          }
+          throw new Error(responseText || `The AI service returned an unexpected response (${response.status}).`);
+        }
+        if (!response.ok) {
+          if (response.status === 401) throw new Error('Your secure Admin session expired. Please log out and sign in again.');
+          const error = new Error(data.error || 'OpenAI generation failed.') as Error & { retryable?: boolean };
+          error.retryable = response.status === 429 || response.status >= 500;
+          if (!error.retryable) throw error;
+          if (attempt === maxAttempts) throw error;
+        } else {
+          return operation === 'image' ? data.image : data.text;
+        }
+      } catch (error) {
+        const isAbort = error instanceof DOMException && error.name === 'AbortError';
+        if (attempt === maxAttempts || (error as Error & { retryable?: boolean })?.retryable === false || (error instanceof Error && /session expired|reference images were too large/i.test(error.message))) {
+          if (isAbort) throw new Error('The image service exceeded its four-and-a-half-minute safety limit. Your written draft is preserved; retry only the images.');
+          throw error;
+        }
+        await new Promise(resolve => window.setTimeout(resolve, 1500 * attempt));
+      } finally {
+        window.clearTimeout(timeout);
       }
-      throw new Error(responseText || `The AI service returned an unexpected response (${response.status}).`);
     }
-    if (!response.ok) {
-      if (response.status === 401) throw new Error('Your secure Admin session expired. Please log out and sign in again.');
-      throw new Error(data.error || 'OpenAI generation failed.');
-    }
-    return operation === 'image' ? data.image : data.text;
+
+    throw new Error('OpenAI generation failed after two attempts.');
   };
 
   const establishAdminSession = async () => {
@@ -377,6 +402,13 @@ const AdminPanel = () => {
   const [aeoListItems, setAeoListItems] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStatus, setGenerationStatus] = useState('');
+  interface PendingImagePlan {
+    draftContent: string;
+    coverPrompt: string;
+    inlineJobs: Array<{ fullMatch: string; originalPrompt: string; prompt: string }>;
+    conciseAltText: string;
+  }
+  const [pendingImagePlan, setPendingImagePlan] = useState<PendingImagePlan | null>(null);
 
   const [targetProduct, setTargetProduct] = useState('');
   const [targetProductBase64s, setTargetProductBase64s] = useState<string[]>([]);
@@ -397,95 +429,135 @@ const AdminPanel = () => {
   // Post Idea Generator State
   interface PostIdea {
     title: string;
+    primaryKeyword: string;
+    secondaryKeywords: string[];
+    searchIntent: 'informational' | 'commercial' | 'transactional' | 'lifestyle';
+    contentPillar: 'care' | 'cocktails' | 'entertaining' | 'gifting' | 'design' | 'wellness' | 'comparisons';
     contentDirection: string;
     targetProduct: string;
     coverImageDirection: string;
     inlineImage1Direction: string;
+    inlineImage2Direction: string;
   }
   const [postIdeas, setPostIdeas] = useState<PostIdea[]>([]);
   const [ideaTitleHistory, setIdeaTitleHistory] = useState<string[]>([]);
+  const [ideaKeywordHistory, setIdeaKeywordHistory] = useState<string[]>([]);
   const [isLoadingIdeas, setIsLoadingIdeas] = useState(false);
 
-  // Generate 3 AI-powered post ideas using OpenAI
+  useEffect(() => {
+    try {
+      setIdeaTitleHistory(JSON.parse(localStorage.getItem('moscow_mix_idea_title_history') || '[]'));
+      setIdeaKeywordHistory(JSON.parse(localStorage.getItem('moscow_mix_idea_keyword_history') || '[]'));
+    } catch {
+      localStorage.removeItem('moscow_mix_idea_title_history');
+      localStorage.removeItem('moscow_mix_idea_keyword_history');
+    }
+  }, []);
+
+  const normalizeIdeaText = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const ideaSimilarity = (left: string, right: string) => {
+    const ignored = new Set(['a', 'an', 'and', 'are', 'best', 'for', 'how', 'in', 'of', 'the', 'to', 'with', 'why', 'your']);
+    const leftWords = new Set(normalizeIdeaText(left).split(' ').filter(word => word && !ignored.has(word)));
+    const rightWords = new Set(normalizeIdeaText(right).split(' ').filter(word => word && !ignored.has(word)));
+    if (!leftWords.size || !rightWords.size) return 0;
+    const intersection = [...leftWords].filter(word => rightWords.has(word)).length;
+    const union = new Set([...leftWords, ...rightWords]).size;
+    return intersection / union;
+  };
+
+  const parseIdeaResponse = (text: string): PostIdea[] => {
+    try {
+      return JSON.parse(text);
+    } catch {
+      let json = text;
+      if (text.includes('```json')) json = text.split('```json')[1]?.split('```')[0] || text;
+      else if (text.includes('```')) json = text.split('```')[1]?.split('```')[0] || text;
+      const match = json.match(/\[[\s\S]*\]/);
+      return JSON.parse((match?.[0] || json).trim());
+    }
+  };
+
+  // Generate six copper-only ideas and keep refreshing away from prior angles.
   const generatePostIdeas = async () => {
     setIsLoadingIdeas(true);
     try {
-      const catalogProducts = config.products.map(product => product.name).join('; ');
+      const copperProducts = config.products.filter(product => product.category === ProductCategory.COPPER);
+      if (!copperProducts.length) throw new Error('No copper products are available in the product catalog.');
+      const catalogProducts = copperProducts.map(product => `- ${product.name}: ${product.description}`).join('\n');
+      const catalogNames = new Map(copperProducts.map(product => [normalizeIdeaText(product.name), product.name]));
       const existingPostTitles = config.blogPosts.map(post => post.title);
       const excludedTitles = [...existingPostTitles, ...ideaTitleHistory];
-      const normalizeTitle = (title: string) => title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-      const excludedNormalized = new Set(excludedTitles.map(normalizeTitle));
+      const accepted: PostIdea[] = [];
+      const excludedKeywords = [...ideaKeywordHistory];
 
-      const text = await callOpenAI(`You are an expert SEO content strategist for Moscow Mix, a premium brand.
+      for (let round = 0; round < 2 && accepted.length < 6; round += 1) {
+        const needed = 6 - accepted.length;
+        const text = await callOpenAI(`You are the SEO content strategist for Moscow Mix, a premium pure-copper drinkware and barware brand.
 
-Prioritize established, popular evergreen search-query patterns and content gaps in the pure copper drinkware, Moscow Mule, copper care, premium barware, natural fire starter, campfire, fireplace, and outdoor-living niches. Favor clear informational and commercial intent. Do not chase unrelated trends.
+Create ${needed} fresh journal ideas. COPPER PRODUCTS ONLY. Never propose fire starters, campfires, fireplaces, kindling, wood wool, outdoor fire, or any non-copper product.
 
-ACTUAL MOSCOW MIX PRODUCT CATALOG:
+ACTUAL MOSCOW MIX COPPER CATALOG (targetProduct must copy one name exactly):
 ${catalogProducts}
 
-NEVER repeat, lightly rewrite, reverse, pluralize, or create a near-duplicate of any of these existing or previously shown titles:
-${excludedTitles.length ? excludedTitles.map(title => `- ${title}`).join('\n') : '- None yet'}
+GOOGLE-STYLE SEARCH-DEMAND SEED CLUSTERS:
+- Short-tail products: copper mugs, Moscow Mule mugs, pure copper mugs, copper water bottle, copper pitcher, copper jug, copper barware, copper drinkware
+- Questions and care: how to clean copper mugs, are copper mugs safe, why Moscow Mules use copper mugs, copper mug tarnish, copper patina, how to clean a copper water bottle
+- Comparisons: copper mugs vs stainless steel mugs, copper water bottle vs stainless steel, copper pitcher vs glass pitcher
+- Purchase and gifting: best copper mugs, copper gifts, wedding gifts, anniversary gifts, housewarming gifts, bar cart accessories
+- Experiences and events: Moscow Mule recipe, cocktail party ideas, wedding bar ideas, summer cocktails, holiday drinks, home entertaining, tablescape ideas
+- Lifestyle and aesthetics: copper kitchen decor, home bar design, elevated hosting, drink presentation, daily hydration ritual
 
-GENERATE 3 COMPLETELY DIFFERENT blog post ideas. CRITICAL: Each idea MUST:
-1. Target a DIFFERENT search intent (informational, commercial, lifestyle)
-2. Use a DIFFERENT title format (how-to, listicle, story, guide, vs comparison)
-3. Appeal to a DIFFERENT audience segment
-4. Center on a real product from the catalog above—never invent a product
-5. Use a naturally phrased primary search term that real customers use
-6. Be genuinely new in subject, angle, and keyword—not merely a new wording
+Use these as query families, not as claims of exact volume. Never invent volume numbers. Blend one natural primary keyword with useful long-tail questions and clear buyer intent. Health/wellness ideas must not claim that copper treats, cures, detoxifies, or prevents disease; distinguish tradition from established evidence.
 
-KEYWORD THEMES TO ROTATE BETWEEN (use different ones for each post):
-- Cocktail recipes, mixology, bartending, happy hour
-- Camping, outdoor cooking, fire starting, survival
-- Home entertaining, hosting, party planning
-- Gift guides, wedding registry, housewarming
-- Health benefits of copper, copper care, patina
-- Seasonal themes (summer drinks, winter fires, holiday hosting)
+NEVER repeat or lightly rewrite these existing or previously shown titles:
+${[...excludedTitles, ...accepted.map(idea => idea.title)].map(title => `- ${title}`).join('\n') || '- None'}
 
-For EACH idea provide exactly these 5 fields:
-- title: Unique SEO title 50-70 chars (vary formats: "How to...", "X Best...", "Why...", "The Ultimate...", "X vs Y")
-- contentDirection: 2-3 sentences describing unique angle and value
-- targetProduct: Exact product name from the Moscow Mix catalog
-- coverImageDirection: Vivid scene with a person embodying the content
-- inlineImage1Direction: Action shot of happy person using the product
+NEVER reuse these primary keywords in this refresh:
+${[...excludedKeywords, ...accepted.map(idea => idea.primaryKeyword)].map(keyword => `- ${keyword}`).join('\n') || '- None'}
 
-Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.`, 'ideas');
-      console.log('Raw API response:', text);
+Across this one set, spread ideas across at least five different pillars: care, cocktails, entertaining, gifting, design, wellness, comparisons. Use distinct search intent, audience, occasion, title structure, and article angle for every card. An idea is not new if only the season, number, adjective, or word order changed.
 
-      // Robust JSON parsing with multiple fallback methods
-      let ideas = [];
-      try {
-        // Try direct parse first
-        ideas = JSON.parse(text);
-      } catch (e1) {
-        console.log('Direct parse failed, trying extraction...');
-        // Try to extract JSON from markdown code blocks
-        let jsonStr = text;
-        if (text.includes('```json')) {
-          jsonStr = text.split('```json')[1]?.split('```')[0] || text;
-        } else if (text.includes('```')) {
-          jsonStr = text.split('```')[1]?.split('```')[0] || text;
+Return ONLY a JSON array with ${needed} objects, each containing exactly:
+{
+  "title": "natural SEO title, normally 45-70 characters",
+  "primaryKeyword": "one realistic search phrase",
+  "secondaryKeywords": ["2-4 closely related long-tail phrases"],
+  "searchIntent": "informational|commercial|transactional|lifestyle",
+  "contentPillar": "care|cocktails|entertaining|gifting|design|wellness|comparisons",
+  "contentDirection": "2-3 specific sentences explaining the audience, question and useful answer",
+  "targetProduct": "exact catalog product name",
+  "coverImageDirection": "premium editorial scene; product resting on a stable surface; no one touching it",
+  "inlineImage1Direction": "different premium scene; product resting untouched on a stable surface",
+  "inlineImage2Direction": "third distinct scene; product resting untouched on a stable surface"
+}`, 'ideas');
+
+        const candidates = parseIdeaResponse(text);
+        if (!Array.isArray(candidates)) continue;
+        for (const candidate of candidates) {
+          if (!candidate?.title || !candidate?.primaryKeyword || !candidate?.targetProduct) continue;
+          const exactProduct = catalogNames.get(normalizeIdeaText(candidate.targetProduct));
+          if (!exactProduct) continue;
+          const comparedTitles = [...excludedTitles, ...accepted.map(idea => idea.title)];
+          if (comparedTitles.some(title => normalizeIdeaText(title) === normalizeIdeaText(candidate.title) || ideaSimilarity(title, candidate.title) >= 0.52)) continue;
+          const comparedKeywords = [...excludedKeywords, ...accepted.map(idea => idea.primaryKeyword)];
+          if (comparedKeywords.some(keyword => normalizeIdeaText(keyword) === normalizeIdeaText(candidate.primaryKeyword))) continue;
+          accepted.push({
+            ...candidate,
+            targetProduct: exactProduct,
+            secondaryKeywords: Array.isArray(candidate.secondaryKeywords) ? candidate.secondaryKeywords.slice(0, 4) : [],
+          });
+          if (accepted.length === 6) break;
         }
-        // Try to find array brackets
-        const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
-        if (arrayMatch) {
-          jsonStr = arrayMatch[0];
-        }
-        ideas = JSON.parse(jsonStr.trim());
       }
 
-      if (Array.isArray(ideas) && ideas.length > 0) {
-        const freshIdeas = ideas.filter((idea: PostIdea) => {
-          if (!idea?.title || excludedNormalized.has(normalizeTitle(idea.title))) return false;
-          excludedNormalized.add(normalizeTitle(idea.title));
-          return true;
-        }).slice(0, 3);
-        if (freshIdeas.length === 0) throw new Error('OpenAI repeated previously used ideas. Please request another set.');
-        setPostIdeas(freshIdeas);
-        setIdeaTitleHistory(previous => [...previous, ...freshIdeas.map((idea: PostIdea) => idea.title)]);
-      } else {
-        throw new Error('Invalid response format');
-      }
+      if (accepted.length !== 6) throw new Error('The generator could not produce six sufficiently different copper ideas. Please click New Ideas once more.');
+      setPostIdeas(accepted);
+      const nextTitles = [...ideaTitleHistory, ...accepted.map(idea => idea.title)].slice(-150);
+      const nextKeywords = [...ideaKeywordHistory, ...accepted.map(idea => idea.primaryKeyword)].slice(-150);
+      setIdeaTitleHistory(nextTitles);
+      setIdeaKeywordHistory(nextKeywords);
+      localStorage.setItem('moscow_mix_idea_title_history', JSON.stringify(nextTitles));
+      localStorage.setItem('moscow_mix_idea_keyword_history', JSON.stringify(nextKeywords));
     } catch (error) {
       console.error('Error generating ideas:', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -502,6 +574,7 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
     setTargetProduct(idea.targetProduct);
     setCoverImgDir(idea.coverImageDirection);
     setInlineImg1Dir(idea.inlineImage1Direction);
+    setInlineImg2Dir(idea.inlineImage2Direction);
     setPostIdeas([]); // Clear ideas after selection
 
     // Scroll to the title field
@@ -668,6 +741,7 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
     setCoverImgDir('');
     setInlineImg1Dir('');
     setInlineImg2Dir('');
+    setPendingImagePlan(null);
 
     const container = document.getElementById('journal-editor');
     if (container) container.scrollIntoView({ behavior: 'smooth' });
@@ -690,6 +764,7 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
     setCoverImgDir('');
     setInlineImg1Dir('');
     setInlineImg2Dir('');
+    setPendingImagePlan(null);
     // Reset scheduling state
     setPostStatus('published');
     setScheduledDateTime('');
@@ -768,18 +843,97 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
     prompt: string,
     _modelType?: string,
     referenceImages?: string[]
-  ): Promise<string | null> => {
-    try {
-      return await callOpenAI(
-        `${prompt}. Photorealistic luxury editorial photography for Moscow Mix. No text or logos unless explicitly requested.`,
-        'image',
-        referenceImages || []
+  ): Promise<string> => {
+    const image = await callOpenAI(
+      `${prompt}. Photorealistic premium editorial photography for Moscow Mix. Natural human anatomy and facial proportions. The genuine reference product rests untouched on a stable surface. No person holds, wears, overlaps, or touches the product. No text, packaging copy, invented logos, surreal objects, duplicate limbs, fused fingers, or distorted faces.`,
+      'image',
+      referenceImages || []
+    );
+    if (!image || typeof image !== 'string') throw new Error('OpenAI returned an empty image.');
+    return image;
+  };
+
+  const parseJsonObject = (value: string) => {
+    const cleaned = value.replace(/```json/g, '').replace(/```/g, '').trim();
+    const objectMatch = cleaned.match(/\{[\s\S]*\}/);
+    return JSON.parse(objectMatch?.[0] || cleaned);
+  };
+
+  const generateValidatedImage = async (prompt: string, label: string): Promise<string> => {
+    let qualityFeedback = '';
+    for (let generationAttempt = 1; generationAttempt <= 2; generationAttempt += 1) {
+      setGenerationStatus(`${label}: creating high-quality image${generationAttempt > 1 ? ' (quality retry)' : ''}...`);
+      const image = await generateImageFromPrompt(
+        `${prompt}${qualityFeedback ? ` CORRECT THESE PRIOR QUALITY FAILURES: ${qualityFeedback}` : ''}`,
+        imageGenModel,
+        targetProductBase64s
       );
+
+      setGenerationStatus(`${label}: checking the exact product, face, hands and image quality...`);
+      const qaText = await callOpenAI(`You are a strict ecommerce image quality inspector. The first ${Math.min(targetProductBase64s.length, 3)} image(s) are authoritative photographs of the genuine Moscow Mix target product. The final image is a proposed journal image.
+
+Reject the proposed image unless ALL are true:
+1. The exact same product category, silhouette, proportions, cap/handle/rim/base, texture, finish, count and construction details are clearly preserved. A generic or merely similar copper product fails.
+2. No extra, substituted, merged, enlarged, distorted or invented copper item appears.
+3. Every visible person has realistic facial anatomy, eyes, mouth, hands, fingers, limbs and body proportions. No fused, missing, duplicate or object-like anatomy.
+4. The product is resting on a stable surface and no person is touching, holding, wearing or overlapping it.
+5. The result looks like polished premium editorial photography, is sharp, coherent and commercially usable.
+
+Return only JSON:
+{"pass":true,"productIdentityScore":0,"humanAnatomyScore":0,"editorialQualityScore":0,"reasons":["specific issue"]}
+Use scores from 0-100. pass may be true only when productIdentityScore >= 94, humanAnatomyScore >= 96, editorialQualityScore >= 88, and there are no material defects.`, 'text', [...targetProductBase64s.slice(0, 3), image]);
+      const qa = parseJsonObject(qaText);
+      const passed = qa?.pass === true
+        && Number(qa.productIdentityScore) >= 94
+        && Number(qa.humanAnatomyScore) >= 96
+        && Number(qa.editorialQualityScore) >= 88;
+      if (passed) return image;
+      qualityFeedback = Array.isArray(qa?.reasons) && qa.reasons.length
+        ? qa.reasons.join('; ')
+        : 'The image did not preserve the exact product or professional human anatomy.';
+    }
+    throw new Error(`${label} failed the product-and-human quality check twice. No partial image set was applied.`);
+  };
+
+  const createAndApplyImageSet = async (plan: PendingImagePlan) => {
+    if (targetProductBase64s.length === 0) throw new Error('The product reference photo is no longer available. Upload it again before retrying images.');
+    if (plan.inlineJobs.length !== 2) throw new Error('The written draft did not contain both required image positions.');
+
+    const prompts = [plan.coverPrompt, ...plan.inlineJobs.map(job => job.prompt)];
+    const labels = ['Cover image', 'Inline image 1', 'Inline image 2'];
+    const generated = await Promise.all(prompts.map((prompt, index) => generateValidatedImage(prompt, labels[index])));
+
+    setGenerationStatus('All three passed. Saving the complete image set...');
+    const uploaded = await Promise.all([
+      uploadBase64ToFirebase(generated[0], 'blog-covers'),
+      uploadBase64ToFirebase(generated[1], 'blog-content'),
+      uploadBase64ToFirebase(generated[2], 'blog-content'),
+    ]);
+    if (uploaded.some(url => !url)) throw new Error('One of the approved images could not be saved. The draft is preserved; retry the image set.');
+
+    let completedContent = plan.draftContent;
+    plan.inlineJobs.forEach((job, index) => {
+      const imgTag = `<div class="image-block"><img src="${uploaded[index + 1]}" alt="${plan.conciseAltText}" /></div>`;
+      completedContent = completedContent.replace(job.fullMatch, imgTag);
+    });
+    setBlogCover(uploaded[0] || '');
+    setBlogContent(completedContent);
+    if (contentEditableRef.current) contentEditableRef.current.innerHTML = completedContent;
+    setPendingImagePlan(null);
+  };
+
+  const retryPendingImages = async () => {
+    if (!pendingImagePlan) return;
+    setIsGenerating(true);
+    try {
+      await createAndApplyImageSet(pendingImagePlan);
     } catch (error) {
-      console.error('OpenAI image generation failed', error);
+      console.error('Image set retry failed', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
-      alert(`Image generation failed: ${message}`);
-      return null;
+      alert(`Images were not applied: ${message}\n\nYour written draft is still preserved. You can retry the three images without rewriting it.`);
+    } finally {
+      setIsGenerating(false);
+      setGenerationStatus('');
     }
   };
 
@@ -797,7 +951,10 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
     setGenerationStatus('Analyzing product images & Writing content...');
 
     try {
-      const productsContext = config.products.map(p => `${p.name} (ID: ${p.id})`).join(', ');
+      const productsContext = config.products
+        .filter(product => product.category === ProductCategory.COPPER)
+        .map(product => `${product.name} (ID: ${product.id})`)
+        .join(', ');
       // Across each four-post sequence: 9 of 12 people are European, and 3 are
       // contemporary Chinese or Japanese adults. Cover and first inline image
       // remain European; the second inline image provides the rotating mix.
@@ -807,10 +964,10 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
         : 'Cast a contemporary Chinese or Japanese adult in modern, understated lifestyle clothing.';
 
       const prompt = `
-        You are an expert luxury lifestyle editor for 'Moscow Mix' - a premium brand selling pure copper barware products and natural fire starters.
+        You are an expert luxury lifestyle editor for 'Moscow Mix' - a premium pure-copper drinkware and barware brand.
         
         TASK:
-        1. FIRST, analyze the attached product image(s). Extract an EXTREMELY DETAILED "VISUAL DNA" description. This is CRITICAL - the image generator cannot see the image, so your description must be perfect:
+        1. FIRST, analyze the attached authentic Moscow Mix product image(s). Extract an EXTREMELY DETAILED "VISUAL DNA" description so the reference-based image workflow can preserve product identity:
            
            **HANDLE DETAILS (MOST IMPORTANT)**:
            - Handle material (copper, brass, stainless steel?)
@@ -838,12 +995,12 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
            - What EMOTIONS should readers feel?
            - What LIFESTYLE does this article promote?
            - How can images REINFORCE the narrative?
-           - How can we SUBTLY PROMOTE Moscow Mix copper barware and fire starters?
+           - How can we SUBTLY PROMOTE the exact Moscow Mix copper product shown in the references?
         
         4. THEN, write a professional, SEO-optimized blog post (1500-1800 words) based on the title: "${blogTitle}".
         
         CONTEXT:
-        - Brand: Moscow Mix - High-end pure copper drinkware & natural fire starters.
+        - Brand: Moscow Mix - High-end pure copper drinkware and barware.
         - Target Product to Weave In: "${targetProduct || 'Our premium Copper Collection'}".
         - Available Products for linking: ${productsContext}.
         ${blogContentDirection ? `- SPECIFIC DIRECTION FROM EDITOR: "${blogContentDirection}"` : ""}
@@ -869,7 +1026,8 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
             - MUST feature a REAL PERSON (man or woman, diverse representation encouraged)
             - Cast a European adult in contemporary, understated lifestyle clothing. Avoid cultural stereotypes.
             - Person should EMBODY the lifestyle/emotion of the article
-            - Person should be INTERACTING with the Moscow Mix product (holding mug, enjoying drink, gathered around fire, etc.)
+            - The exact Moscow Mix product must rest untouched on a stable table, counter, tray, or shelf in the foreground
+            - The person may enjoy the surrounding lifestyle but must not touch, hold, wear, overlap, or obscure the product
             - Setting should VISUALLY SUMMARIZE the article's message
             - Think: "What single image makes someone want to read this article?"
             ${coverImgDir ? `- SPECIFIC DIRECTION: "${coverImgDir}"` : ''}
@@ -877,7 +1035,7 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
             **INLINE IMAGE 1 (MANDATORY - MUST INCLUDE HAPPY PERSON):**
             - MUST feature a HAPPY person (genuine smile, relaxed, enjoying the moment)
             - Cast a European adult in contemporary, understated lifestyle clothing. Avoid cultural stereotypes.
-            - Person should be engaged with the product or activity described in surrounding text
+            - Person should be engaged with the surrounding activity while the exact product rests untouched on a stable surface
             - Should feel like authentic lifestyle photography, not staged
             ${inlineImg1Dir ? `- SPECIFIC DIRECTION: "${inlineImg1Dir}"` : '- Must be contextually relevant to the surrounding paragraph content.'}
             
@@ -905,13 +1063,13 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
                 6. Be DESCRIPTIVE but CONCISE (e.g., 'copper-mug-care-guide' not 'how-to-clean-copper')
                 7. Include BRAND terms only if highly relevant (e.g., 'moscow-mule' is good, 'moscow-mix' is not)
                 8. AEO-FRIENDLY: Optimize for voice search queries (natural language patterns)
-                EXAMPLE GOOD SLUGS: 'moscow-mule-recipe', 'copper-mug-care-guide', 'fire-starting-tips', 'campfire-safety-guide'
+                EXAMPLE GOOD SLUGS: 'moscow-mule-recipe', 'copper-mug-care-guide', 'copper-water-bottle', 'copper-pitcher-drinks'
                 EXAMPLE BAD SLUGS: 'how-to-make-perfect-moscow-mule-at-home', 'the-best-way-to-care-for-copper', '2024-tips'",
              "tags": ["tag1", "tag2"],
              "metaDescription": "SEO meta description",
-             "coverImagePrompt": "A [ethnicity] [man/woman] in their [age]s, [specific action with product], [emotion/expression], holding [EXACT PRODUCT DESCRIPTION STRING], in [setting that embodies article theme], warm natural lighting, photorealistic, magazine editorial quality, 8k",
+             "coverImagePrompt": "The EXACT PRODUCT DESCRIPTION STRING resting untouched on a stable foreground surface, with a [ethnicity] [man/woman] in their [age]s enjoying the surrounding lifestyle in the middle ground, hands fully visible and away from the product, warm natural lighting, photorealistic magazine editorial quality",
              "inlineImagePrompts": [
-               "A happy [man/woman], genuinely smiling, [action relevant to paragraph], with [EXACT PRODUCT DESCRIPTION STRING] visible, [lifestyle setting], photorealistic, candid lifestyle photography, 8k",
+               "The EXACT PRODUCT DESCRIPTION STRING resting untouched on a stable surface, a happy [man/woman] genuinely smiling in the background with hands fully visible and away from the product, [lifestyle setting], photorealistic candid editorial photography",
                "Second inline image prompt with product and context"
              ],
              "aeoQuestion": "The primary question this article answers, phrased exactly as users would search. Example: 'What is the best way to clean copper mugs?' Start with What/How/Why.",
@@ -939,44 +1097,27 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
         setAeoListItems(data.aeoListItems.join('\n'));
       }
 
-      // 2. Generate Cover Image
-      setGenerationStatus('Creating the cover and two article images together...');
-      const coverPrompt = `${data.coverImagePrompt || `A professional, magazine-quality photo for a blog post about: ${blogTitle}. ${blogContentDirection || ''}. Photorealistic, 8k.`} CASTING REQUIREMENT: Cast a European adult in contemporary, understated lifestyle clothing. Avoid cultural stereotypes.`;
-      let finalContent = data.content;
+      // Preserve the complete written draft before any slower image work begins.
+      const draftContent = String(data.content || '');
+      setBlogContent(draftContent);
+      if (contentEditableRef.current) contentEditableRef.current.innerHTML = draftContent;
+
+      setGenerationStatus('Preparing the cover and two article images...');
+      const coverPrompt = `${data.coverImagePrompt || `A professional magazine-quality photo for a blog post about ${blogTitle}. ${blogContentDirection || ''}.`} CASTING REQUIREMENT: Cast a European adult in contemporary, understated lifestyle clothing. Their hands must remain fully visible and away from the product. The authentic Moscow Mix reference product rests untouched on a stable surface. Avoid cultural stereotypes.`;
 
       // Improved regex to handle various attribute orderings if necessary, but standardizing on the one we generated
       const placeholderRegex = /<div class="image-placeholder" data-prompt="([^"]+)"><\/div>/g;
 
       // transform to array to avoid iterator issues during async replacement
-      const matches = Array.from(finalContent.matchAll(placeholderRegex));
+      const matches = Array.from(draftContent.matchAll(placeholderRegex));
 
       const inlineJobs = matches.slice(0, 2).map((match, index) => {
         const originalPrompt = match[1];
         const casting = index === 0
           ? 'CASTING REQUIREMENT: Cast a European adult in contemporary, understated lifestyle clothing. Avoid cultural stereotypes.'
           : `CASTING REQUIREMENT: ${inlineTwoCasting} Avoid cultural stereotypes.`;
-        return { fullMatch: match[0], originalPrompt, prompt: `${originalPrompt} ${casting}` };
+        return { fullMatch: match[0], originalPrompt, prompt: `${originalPrompt} ${casting} The authentic Moscow Mix reference product must rest untouched on a stable surface; all hands remain visible and away from it.` };
       });
-
-      const [coverUrlRaw, ...inlineImages] = await Promise.all([
-        generateImageFromPrompt(coverPrompt, imageGenModel, targetProductBase64s),
-        ...inlineJobs.map(job => generateImageFromPrompt(job.prompt, imageGenModel, targetProductBase64s)),
-      ]);
-
-      const uploadGeneratedImage = async (rawImage: string | null, folder: string, prompt: string) => {
-        if (rawImage?.startsWith('data:')) {
-          const uploaded = await uploadBase64ToFirebase(rawImage, folder);
-          if (uploaded) return uploaded;
-        }
-        return rawImage || `https://image.pollinations.ai/prompt/${encodeURIComponent(`${prompt} photorealistic, cinematic, luxury product photography`)}`;
-      };
-
-      setGenerationStatus('Saving the completed images...');
-      const [coverUrl, ...inlineUrls] = await Promise.all([
-        uploadGeneratedImage(coverUrlRaw, 'blog-covers', coverPrompt),
-        ...inlineJobs.map((job, index) => uploadGeneratedImage(inlineImages[index], 'blog-content', job.prompt)),
-      ]);
-      if (coverUrl) setBlogCover(coverUrl);
 
       const conciseAltText = [targetProduct || 'Moscow Mix product', blogTitle]
         .join(' ')
@@ -986,23 +1127,14 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
         .split(' ')
         .slice(0, 10)
         .join(' ');
-
-      inlineJobs.forEach((job, index) => {
-        const imageUrl = inlineUrls[index];
-        const imgTag = imageUrl
-          ? `<div class="image-block"><img src="${imageUrl}" alt="${conciseAltText}" /></div>`
-          : '';
-        finalContent = finalContent.replace(job.fullMatch, imgTag);
-      });
-
-      if (contentEditableRef.current) contentEditableRef.current.innerHTML = finalContent;
-      setBlogContent(finalContent);
+      const imagePlan: PendingImagePlan = { draftContent, coverPrompt, inlineJobs, conciseAltText };
+      setPendingImagePlan(imagePlan);
+      await createAndApplyImageSet(imagePlan);
 
     } catch (error) {
-      console.error(error);
-      console.error(error);
+      console.error('AI journal generation failed', error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      alert(`AI Generation failed: ${errorMessage}`);
+      alert(`AI generation stopped: ${errorMessage}\n\nThe written draft and image plan are preserved whenever writing completed. Use “Retry 3 Images” instead of rewriting the post.`);
     } finally {
       setIsGenerating(false);
       setGenerationStatus('');
@@ -1386,7 +1518,7 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
                         <h4 className="text-amber-400 font-bold text-sm uppercase tracking-widest flex items-center gap-2">
                           <Sparkles size={16} /> AI Post Ideas
                         </h4>
-                        <p className="text-stone-400 text-xs mt-1">Get 3 AI-generated post ideas tailored to Moscow Mix products</p>
+                        <p className="text-stone-400 text-xs mt-1">Get 6 distinct, copper-only ideas built around search intent</p>
                       </div>
                       <button
                         onClick={generatePostIdeas}
@@ -1405,7 +1537,7 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
 
                     {/* Idea Cards */}
                     {postIdeas.length > 0 && (
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                         {postIdeas.map((idea, index) => (
                           <div
                             key={index}
@@ -1414,6 +1546,11 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
                           >
                             <h5 className="text-white font-semibold text-sm mb-2 group-hover:text-amber-400 line-clamp-2">{idea.title}</h5>
                             <p className="text-stone-400 text-xs mb-3 line-clamp-2">{idea.contentDirection}</p>
+                            <div className="flex flex-wrap gap-1 mb-3">
+                              <span className="bg-stone-950/70 text-stone-300 px-2 py-0.5 rounded text-[10px]">{idea.primaryKeyword}</span>
+                              <span className="bg-stone-950/70 text-stone-400 px-2 py-0.5 rounded text-[10px] capitalize">{idea.searchIntent}</span>
+                              <span className="bg-stone-950/70 text-stone-400 px-2 py-0.5 rounded text-[10px] capitalize">{idea.contentPillar}</span>
+                            </div>
                             <div className="flex items-center gap-2">
                               <span className="bg-amber-900/50 text-amber-400 px-2 py-0.5 rounded text-[10px] font-medium">{idea.targetProduct}</span>
                             </div>
@@ -1451,11 +1588,11 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">Inline Image 1</label>
-                      <input type="text" placeholder="e.g. Hand holding a copper mug" className="w-full bg-stone-900 border border-stone-800 p-2 text-white text-xs focus:border-copper-500 outline-none" value={inlineImg1Dir} onChange={e => setInlineImg1Dir(e.target.value)} />
+                      <input type="text" placeholder="e.g. Copper mug on a bar beside a smiling host" className="w-full bg-stone-900 border border-stone-800 p-2 text-white text-xs focus:border-copper-500 outline-none" value={inlineImg1Dir} onChange={e => setInlineImg1Dir(e.target.value)} />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">Inline Image 2</label>
-                      <input type="text" placeholder="e.g. Fireplace setting" className="w-full bg-stone-900 border border-stone-800 p-2 text-white text-xs focus:border-copper-500 outline-none" value={inlineImg2Dir} onChange={e => setInlineImg2Dir(e.target.value)} />
+                      <input type="text" placeholder="e.g. Copper bottle on a sunlit kitchen counter" className="w-full bg-stone-900 border border-stone-800 p-2 text-white text-xs focus:border-copper-500 outline-none" value={inlineImg2Dir} onChange={e => setInlineImg2Dir(e.target.value)} />
                     </div>
                   </div>
                 </div>
@@ -1485,13 +1622,19 @@ Return ONLY a JSON array with 3 objects. No markdown, citations, or explanation.
                       )}
                     </div>
                   </div>
-                  <div className="flex items-end"><button onClick={generateFullPost} className="w-full bg-gradient-to-r from-purple-900 to-indigo-900 hover:from-purple-800 hover:to-indigo-800 text-white px-6 py-3 uppercase tracking-widest text-xs font-bold flex items-center justify-center gap-2"><Sparkles size={16} /> Auto-Write & Design</button></div>
+                  <div className="flex items-end gap-2">
+                    {pendingImagePlan ? (
+                      <button type="button" onClick={retryPendingImages} disabled={isGenerating} className="w-full bg-amber-700 hover:bg-amber-600 disabled:bg-stone-700 text-white px-6 py-3 uppercase tracking-widest text-xs font-bold flex items-center justify-center gap-2"><RefreshCw size={16} /> Retry 3 Images</button>
+                    ) : (
+                      <button type="button" onClick={generateFullPost} disabled={isGenerating} className="w-full bg-gradient-to-r from-purple-900 to-indigo-900 hover:from-purple-800 hover:to-indigo-800 disabled:from-stone-800 disabled:to-stone-800 text-white px-6 py-3 uppercase tracking-widest text-xs font-bold flex items-center justify-center gap-2"><Sparkles size={16} /> Auto-Write & Design</button>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-6 border-t border-stone-800 pt-6">
                   <div className="space-y-2"><label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Author</label><input type="text" placeholder="Michael B." className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none text-sm" value={blogAuthor} onChange={e => setBlogAuthor(e.target.value)} /></div>
                   <div className="space-y-2"><label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Slug (URL)</label><input type="text" placeholder="my-blog-post" className="w-full bg-stone-950 border border-stone-800 p-3 text-stone-400 focus:border-copper-500 outline-none text-sm font-mono" value={blogSlug} onChange={e => setBlogSlug(e.target.value)} /></div>
                   <div className="col-span-2 space-y-2"><label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Meta Description</label><input type="text" className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none text-sm" value={blogMeta} onChange={e => setBlogMeta(e.target.value)} /></div>
-                  <div className="col-span-2 space-y-2"><label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Tags (comma separated)</label><input type="text" placeholder="Copper, Lifestyle, Fire" className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none text-sm" value={blogTags} onChange={e => setBlogTags(e.target.value)} /></div>
+                  <div className="col-span-2 space-y-2"><label className="text-xs uppercase tracking-widest text-stone-500 font-bold">Tags (comma separated)</label><input type="text" placeholder="Copper, Lifestyle, Entertaining" className="w-full bg-stone-950 border border-stone-800 p-3 text-white focus:border-copper-500 outline-none text-sm" value={blogTags} onChange={e => setBlogTags(e.target.value)} /></div>
                   {/* AEO Direct Answer Block Section */}
                   <div className="col-span-2 border-t border-stone-800 pt-6 mt-4">
                     <div className="flex items-center gap-2 mb-4">
